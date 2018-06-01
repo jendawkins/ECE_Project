@@ -184,8 +184,8 @@ for i in range(50000):
         trace_list.append((state, maximum_action, reward, done))
 
     q_return = 0.
-    for i in range(len(trace_list)-1, -1, -1):
-        node = trace_list[i]
+    for j in range(len(trace_list)-1, -1, -1):
+        node = trace_list[j]
         q_return = q_return * ec_discount + node[2]
         qec_table.update(node[0], node[1], q_return)
     if not i % 100:
