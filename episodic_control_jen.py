@@ -24,8 +24,6 @@ class LRU_KNN:
     def peek(self,key,value,modify):
         if self.curr_capacity==0:
             return None
-
-        # tree = KDTree(self.states[:self.curr_capacity])
         dist, ind = self.tree.query([key], k=1)
         ind = ind[0][0]
 
@@ -41,10 +39,11 @@ class LRU_KNN:
     def knn_value(self, key, knn=11):
         if self.curr_capacity==0:
             return 0.0
-
-        # tree = KDTree(self.states[:self.curr_capacity])
-        # import pdb; pdb.set_trace()
-        dist, ind = self.tree.query([key], k=knn)
+        if self.curr_capacity < knn:
+            k = self.curr_capacity
+        else:
+            k = knn
+        dist, ind = self.tree.query([key], k)
 
         value = 0.0
         for index in ind[0]:
@@ -119,7 +118,6 @@ class QECTable(object):
         q_value = self.ec_buffer[a].peek(state,None,modify = False)
         if q_value!=None:
             return q_value
-        # import pdb; pdb.set_trace()
         return self.ec_buffer[a].knn_value(state)
 
     def update(self, s, a, r):  # s is 84*84*3;  a is 0 to num_actions; r is reward
@@ -129,7 +127,6 @@ class QECTable(object):
             state = s
             if np.isscalar(state):
                 state = [s]
-
         q_value = self.ec_buffer[a].peek(state,r,modify = True)
         if q_value==None:
             self.ec_buffer[a].add(state,r)
@@ -160,29 +157,30 @@ else:
     state_size = env.observation_space.n
 buffer_size = 100000
 ec_discount = .99
-
+min_epsilon = 0.01
+decay_rate = 100
 qec_table = QECTable(action_size,rng,obs_dim,state_dimension,buffer_size,images=False)
 trace_list = []
 for i in range(50000):
     state = env.reset()
     done = False
+    epsilon = min_epsilon + (1.0 - min_epsilon)*np.exp(-decay_rate*i)
     while not done:
-        # maximum_action = np.random.randint(env.action_space.n)
-        # argmax(Q(s,a))
         value_t = []
-        for action in range(action_size):
-            value_t.append(qec_table.estimate(state, action))
-        maximum_action = np.argmax(value_t)
-        # import pdb; pdb.set_trace()
-            # value = 0
-            # if value_t > value:
-            #     value = value_t
-            #     maximum_action = action
-        state, reward, done , _ = env.step(maximum_action)
-        # if value > 0:
-            # import pdb; pdb.set_trace()
-        trace_list.append((state, maximum_action, reward, done))
+        # epsilon greedy
+        if rng.rand() < epsilon:
+            maximum_action = rng.randint(0, action_size)
+        else:
+            for action in range(action_size):
+                value_t.append(qec_table.estimate(state, action))
+                if sum(value_t)==0:
+                    maximum_action = rng.randint(0, action_size)
+                else:
+                    maximum_action = np.argmax(value_t)
 
+        state, reward, done , _ = env.step(maximum_action)
+
+        trace_list.append((state, maximum_action, reward, done))
     q_return = 0.
     for j in range(len(trace_list)-1, -1, -1):
         node = trace_list[j]
@@ -190,3 +188,4 @@ for i in range(50000):
         qec_table.update(node[0], node[1], q_return)
     if not i % 100:
         print(q_return)
+        print(epsilon)
