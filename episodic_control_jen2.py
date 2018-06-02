@@ -7,7 +7,6 @@ import numpy as np
 # import _pickle as cPickle
 import pickle
 import heapq
-# import image_preprocessing as ip
 from sklearn.neighbors import BallTree,KDTree
 
 
@@ -21,10 +20,16 @@ def knn(table,new,knn=11):
         k = len(table)
     else:
         k = knn
-    # import pdb; pdb.set_trace()
-    states_a = np.reshape(states,(len(states),1))
+    if np.isscalar(states[0]):
+        dim2 = 1
+        query_pt= [[new[0]]]
+    else:
+        dim2 = len(states[0])
+        query_pt = np.array(new[0]).reshape(1,-1)
+    states_a = np.reshape(states,(len(states),dim2))
     tree = KDTree(states_a)
-    dist, ind = tree.query([[new[0]]], k)
+    # import pdb; pdb.set_trace()
+    dist, ind = tree.query(query_pt, k)
     value = 0
     for index in ind[0]:
         value += table[(states[index],actions[index])]
@@ -40,7 +45,7 @@ def update_table(table,R,new):
     return table
 
 # Create the CartPole game environment
-env = gym.make('FrozenLake-v0')
+# env = gym.make('FrozenLake-v0')
 from gym.envs.registration import register
 register(
     id='FrozenLakeNotSlippery-v0',
@@ -49,8 +54,9 @@ register(
     max_episode_steps=100,
     reward_threshold=0.78, # optimum = .8196
 )
+env = gym.make('FrozenLakeNotSlippery-v0')
 continuous = False
-# env = gym.make('MountainCar-v0')
+# env = gym.make('NChain-v0')
 env.reset()
 
 rng = np.random.RandomState(123456)
@@ -66,15 +72,17 @@ else:
 buffer_size = 100000
 ec_discount = .99
 min_epsilon = 0.01
-decay_rate = 100
+decay_rate = 10000
 qec_table = {}
 # qec_table = QECTable(action_size,rng,obs_dim,state_dimension,buffer_size,images=False)
 ep_avg_reward = []
 total_reward = []
+total_sum_reward = 0
 epochs = 5000
 for i in range(epochs):
     epoch_steps = 0
     episodes_per_epoch = 0
+    reward_per_epoch = 0
     while epoch_steps < 10000:
         state = env.reset()
         done = False
@@ -84,6 +92,8 @@ for i in range(epochs):
         trace_list = []
         while not done:
             value_t = []
+            if not np.isscalar(state):
+                state = tuple(state)
             # epsilon greedy
             if rng.rand() < epsilon:
                 maximum_action = rng.randint(0, action_size)
@@ -93,23 +103,32 @@ for i in range(epochs):
                     if sum(value_t)==0:
                         maximum_action = rng.randint(0, action_size)
                     else:
+                        # import pdb; pdb.set_trace()
                         maximum_action = np.argmax(value_t)
 
-            state, reward, done , _ = env.step(maximum_action)
+            next_state, reward, done , _ = env.step(maximum_action)
 
             trace_list.append((state, maximum_action, reward, done))
-            ep_reward += reward
+            state = next_state
+            ep_reward += reward # total reward for this episode: 1 if convergence
             steps += 1.0
+        # import pdb; pdb.set_trace()
+        reward_per_epoch += ep_reward
         epoch_steps += steps
         episodes_per_epoch += 1
-        ep_avg_reward.append(ep_reward/steps)
-        total_reward.append(ep_reward)
+        # ep_avg_reward.append(ep_reward)
+        # total_reward.append(ep_reward)
         q_return = 0.
         for j in range(len(trace_list)-1, -1, -1):
             node = trace_list[j]
             q_return = q_return * ec_discount + node[2]
             qec_table = update_table(qec_table,q_return,(node[0],node[1]))
+            # if node[2]==1:
+                # import pdb; pdb.set_trace()
         # qec_table.update(node[0], node[1], q_return)
-    print('Average Reward: '+ str(sum(ep_avg_reward)/len(ep_avg_reward)))
-    print('Average Epoch ' + str(i) + ' Reward: ' + str(sum(ep_avg_reward[-episodes_per_epoch:])/episodes_per_epoch))
-    print('Total Reward: ' + str(sum(total_reward)))
+    # import pdb; pdb.set_trace()
+    total_reward.append(reward_per_epoch/episodes_per_epoch)
+    total_sum_reward += reward_per_epoch
+    # print('Average Reward: '+ str(sum(ep_avg_reward)/len(ep_avg_reward)))
+    print('Average Epoch ' + str(i) + ' Reward: ' + str(total_reward[-1]))
+    print('Total Reward: ' + str(total_sum_reward))

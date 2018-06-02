@@ -149,31 +149,38 @@ min_epsilon = 0.01
 decay_rate = 100
 qec_table = QECTable(action_size,rng,obs_dim,state_dimension,buffer_size,images=False)
 trace_list = []
-for i in range(50000):
-    state = env.reset()
-    done = False
-    epsilon = min_epsilon + (1.0 - min_epsilon)*np.exp(-decay_rate*i)
-    while not done:
-        value_t = []
-        # epsilon greedy
-        if rng.rand() < epsilon:
-            maximum_action = rng.randint(0, action_size)
-        else:
-            for action in range(action_size):
-                value_t.append(qec_table.estimate(state, action))
-                if sum(value_t)==0:
-                    maximum_action = rng.randint(0, action_size)
-                else:
-                    maximum_action = np.argmax(value_t)
+epochs = 5000
+steps_per_episode = 10000
+ep_avg_reward = []
+total_reward = []
+for i in range(epochs):
+    ep_steps = 0
+    while ep_steps < steps_per_episode:
+        state = env.reset()
+        done = False
+        epsilon = min_epsilon + (1.0 - min_epsilon)*np.exp(-decay_rate*i)
+        while not done:
+            value_t = []
+            # epsilon greedy
+            if rng.rand() < epsilon:
+                maximum_action = rng.randint(0, action_size)
+            else:
+                for action in range(action_size):
+                    value_t.append(qec_table.estimate(state, action))
+                    if sum(value_t)==0:
+                        maximum_action = rng.randint(0, action_size)
+                    else:
+                        maximum_action = np.argmax(value_t)
 
-        state, reward, done , _ = env.step(maximum_action)
+            next_state, reward, done , _ = env.step(maximum_action)
 
-        trace_list.append((state, maximum_action, reward, done))
-    q_return = 0.
-    for j in range(len(trace_list)-1, -1, -1):
-        node = trace_list[j]
-        q_return = q_return * ec_discount + node[2]
-        qec_table.update(node[0], node[1], q_return)
+            trace_list.append((state, maximum_action, reward, done))
+            state = next_state
+        q_return = 0.
+        for j in range(len(trace_list)-1, -1, -1):
+            node = trace_list[j]
+            q_return = q_return * ec_discount + node[2]
+            qec_table.update(node[0], node[1], q_return)
     if not i % 100:
         print(q_return)
         print(epsilon)
