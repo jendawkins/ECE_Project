@@ -34,12 +34,12 @@ class Episodic_Control():
         self.loss = nn.MSELoss()
         self.optimizer = torch.optim.Adam(self.net.parameters(),lr = .01)
 
-    def knn(self,new):
-        import pdb; pdb.set_trace()
+    def knn_func(self,new):
+        # import pdb; pdb.set_trace()
         if len(self.qec_table)==0:
             return 0.0
         if new in self.qec_table.keys():
-            return table[new]
+            return self.qec_table[new]
         states,actions = zip(*[key for key,item in self.qec_table.items()])
         if len(self.qec_table) < self.knn:
             k = len(self.qec_table)
@@ -54,17 +54,17 @@ class Episodic_Control():
         states_a = np.reshape(states,(len(states),dim2))
         tree = KDTree(states_a)
         # import pdb; pdb.set_trace()
-        dist, ind = tree.query(query_pt, k)
+        dist, ind = tree.query(query_pt, self.knn)
         value = 0
         for index in ind[0]:
-            value += table[(states[index],actions[index])]
+            value += self.qec_table[(states[index],actions[index])]
 
         return value / knn
 
     def update_table(self,R,new):
         # import pdb; pdb.set_trace()
         if new in self.qec_table.keys():
-            if R>table[new]:
+            if R>self.qec_table[new]:
                 self.qec_table[new] = R
         else:
             self.qec_table[new] = R
@@ -97,9 +97,9 @@ class Episodic_Control():
                         for action in range(self.action_size):
                             s_in = torch.Tensor([state])
                             a_in = torch.Tensor([[action]])
-                            import pdb; pdb.set_trace()
+                            # import pdb; pdb.set_trace()
                             pred = self.net(s_in, a_in)
-                            actual = self.knn((state_t,action))
+                            actual = self.knn_func((state_t,action))
 
                             value_t.append(pred.detach().numpy())
                             if sum(value_t)==0:
@@ -108,7 +108,7 @@ class Episodic_Control():
                                 maximum_action = np.argmax(value_t)
 
                             vp = torch.cat((vp,pred),0)
-                            va = torch.cat((va, torch.Tensor(actual)),0)
+                            va = torch.cat((va, torch.Tensor([[actual]])),0)
                         self.optimizer.zero_grad()
                         loss = self.loss(vp,va)
                         loss.backward()
