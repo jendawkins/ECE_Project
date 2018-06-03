@@ -14,14 +14,14 @@ class neural_net(nn.Module):
         self.output_size = output_size
 
         self.l1 = nn.Linear(self.state_size, 300)
-        self.bn1 = nn.BatchNorm1d(300)
+        # self.bn1 = nn.BatchNorm1d(300)
         self.rel1 = nn.ReLU()
-        self.l2 = nn.Linear(300+self.action_size, 300)
+        self.l2 = nn.Linear(300+1, 300)
         self.rel2 = nn.ReLU()
         self.l3 = nn.Linear(300, self.output_size)
         self.layers = nn.Sequential(
             self.l1,
-            self.bn1,
+            # self.bn1,
             self.rel1,
             self.l2,
             self.rel2,
@@ -32,8 +32,9 @@ class neural_net(nn.Module):
     def forward(self, state_in, action_in):
         """Pass inputs through network"""
         out = self.l1(state_in)
-        out = self.bn1(out)
+        # out = self.bn1(out)
         out = self.rel1(out)
+        # import pdb; pdb.set_trace()
         out2 = self.l2(torch.cat((out, action_in),1))
         out2 = self.rel2(out2)
         out3 = self.l3(out2)
@@ -44,5 +45,5 @@ class neural_net(nn.Module):
         # Xavier: mean = 0 and stdev = 1/sqrt(# inputs)
         for layer in self.layers:
             if isinstance(layer, nn.Linear):
-                init.normal(layer.weight)
-                init.constant(layer.bias,0.1)
+                nn.init.normal(layer.weight)
+                nn.init.constant(layer.bias,0.1)
