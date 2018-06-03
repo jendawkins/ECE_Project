@@ -46,21 +46,21 @@ def update_table(table,R,new):
 
 # Create the CartPole game environment
 # env = gym.make('FrozenLake-v0')
-from gym.envs.registration import register
-register(
-    id='FrozenLakeNotSlippery-v0',
-    entry_point='gym.envs.toy_text:FrozenLakeEnv',
-    kwargs={'map_name' : '4x4', 'is_slippery': False},
-    max_episode_steps=100,
-    reward_threshold=0.78, # optimum = .8196
-)
-env = gym.make('FrozenLakeNotSlippery-v0')
-continuous = False
-# env = gym.make('NChain-v0')
+# from gym.envs.registration import register
+# register(
+#     id='FrozenLakeNotSlippery-v0',
+#     entry_point='gym.envs.toy_text:FrozenLakeEnv',
+#     kwargs={'map_name' : '4x4', 'is_slippery': False},
+#     max_episode_steps=100,
+#     reward_threshold=0.78, # optimum = .8196
+# )
+# env = gym.make('FrozenLakeNotSlippery-v0')
+continuous = True
+env = gym.make('MountainCar-v0')
 env.reset()
 
 rng = np.random.RandomState(123456)
-obs_dim = 84*84
+# obs_dim = 84*84
 action_size = env.action_space.n
 # state_size = env.observation_space.shape[0]
 if continuous:
@@ -103,7 +103,6 @@ for i in range(epochs):
                     if sum(value_t)==0:
                         maximum_action = rng.randint(0, action_size)
                     else:
-                        # import pdb; pdb.set_trace()
                         maximum_action = np.argmax(value_t)
 
             next_state, reward, done , _ = env.step(maximum_action)
