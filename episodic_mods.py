@@ -77,16 +77,16 @@ class Episodic_Control():
         states_j, actions_j = zip(*[key for key,item in self.filt_qec_table.items()])
         g_j = [item for key,item in self.filt_qec_table.items()]
         delta = 1
-        c = #change this to decrease in size with number of epochs
-        for i in len(states):
-            for j in len(states_j):
-                if actions[i] = actions_j[j] and abs(states-states_j) < delta:
+        c = 1 #change this to decrease in size with number of epochs
+        for i in range(len(states)):
+            for j in range(len(states_j)):
+                if actions[i] == actions_j[j] and abs(states[i]-states_j[j]) < delta:
                     if g[i] + c < g_j[j]:
-                        new = (states[i], actions[j])
+                        new = (states[i], actions[i])
                         self.filt_qec_table[new] = g[i]
-                if g_j[j] < avg(g_j):
-                    old = (states_j[i], actions_j[j])
-                    self.filt_qec_table.pop('old',None)
+                if g_j[j] < np.mean(g_j):
+                    old = (states_j[j], actions_j[j])
+                    self.filt_qec_table.pop(old, None)
 
     def train(self):
         ep_avg_reward = []
@@ -114,13 +114,13 @@ class Episodic_Control():
                         vp = torch.Tensor(0,0)
                         va = torch.Tensor(0,0)
                         for action in range(self.action_size):
-                            s_in = torch.Tensor([state])
-                            a_in = torch.Tensor([[action]])
+                            s_in = Variable(torch.Tensor([state]))
+                            a_in = Variable(torch.Tensor([[action]]))
                             # import pdb; pdb.set_trace()
                             pred = self.net(s_in, a_in)
                             actual = self.knn_func((state_t,action))
 
-                            value_t.append(pred.detach().numpy())
+                            value_t.append(pred.data.numpy())
                             if sum(value_t)==0:
                                 maximum_action = rng.randint(0, self.action_size)
                             else:
@@ -129,7 +129,7 @@ class Episodic_Control():
                             vp = torch.cat((vp,pred),0)
                             va = torch.cat((va, torch.Tensor([[actual]])),0)
                         self.optimizer.zero_grad()
-                        loss = self.loss(vp,va)
+                        loss = self.loss(Variable(vp),Variable(va))
                         loss.backward()
                         self.optimizer.step()
                     next_state, reward, done , _ = self.env.step(maximum_action)
