@@ -54,7 +54,7 @@ class Episodic_Control():
         states_a = np.reshape(states,(len(states),dim2))
         tree = KDTree(states_a)
         # import pdb; pdb.set_trace()
-        dist, ind = tree.query(query_pt, self.knn)
+        dist, ind = tree.query(query_pt, k)
         value = 0
         for index in ind[0]:
             value += self.qec_table[(states[index],actions[index])]

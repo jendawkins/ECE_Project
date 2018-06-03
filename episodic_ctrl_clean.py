@@ -9,7 +9,7 @@ import heapq
 from sklearn.neighbors import BallTree,KDTree
 
 class Episodic_Control():
-    def __init__(self, environment, rng, continuous, buffer_size, ec_discount, min_epsilon, decay_rate,knn):
+    def __init__(self, environment, epochs, rng, continuous, buffer_size, ec_discount, min_epsilon, decay_rate,knn):
         self.env = environment
         self.rng = rng
         self.buffer_size = buffer_size
@@ -18,7 +18,8 @@ class Episodic_Control():
         self.decay_rate = decay_rate
         self.knn = knn
         self.qec_table = {}
-        self.action_size = env.action_space.n
+        self.action_size = self.env.action_space.n
+        self.epochs = epochs
         # state_size = env.observation_space.shape[0]
         if continuous:
             self.state_dimension = self.env.observation_space.shape[0]
@@ -27,16 +28,16 @@ class Episodic_Control():
             self.state_dimension = 1
             self.state_size = self.env.observation_space.n
 
-    def knn(self,new,knn):
+    def knn_func(self,new):
         if len(self.qec_table)==0:
             return 0.0
         if new in self.qec_table.keys():
-            return table[new]
+            return self.qec_table[new]
         states,actions = zip(*[key for key,item in self.qec_table.items()])
-        if len(table) < knn:
-            k = len(table)
+        if len(self.qec_table) < self.knn:
+            k = len(self.qec_table)
         else:
-            k = knn
+            k = self.knn
         if np.isscalar(states[0]):
             dim2 = 1
             query_pt= [[new[0]]]
@@ -49,7 +50,7 @@ class Episodic_Control():
         dist, ind = tree.query(query_pt, k)
         value = 0
         for index in ind[0]:
-            value += table[(states[index],actions[index])]
+            value += self.qec_table[(states[index],actions[index])]
 
         return value / knn
 
@@ -81,12 +82,12 @@ class Episodic_Control():
                         state = tuple(state)
                     # epsilon greedy
                     if rng.rand() < epsilon:
-                        maximum_action = rng.randint(0, action_size)
+                        maximum_action = rng.randint(0, self.action_size)
                     else:
-                        for action in range(action_size):
-                            value_t.append(knn(qec_table,(state,action)))
+                        for action in range(self.action_size):
+                            value_t.append(self.knn_func((state,action)))
                             if sum(value_t)==0:
-                                maximum_action = rng.randint(0, action_size)
+                                maximum_action = rng.randint(0, self.action_size)
                             else:
                                 maximum_action = np.argmax(value_t)
 
@@ -104,12 +105,12 @@ class Episodic_Control():
                 for j in range(len(trace_list)-1, -1, -1):
                     node = trace_list[j]
                     q_return = q_return * ec_discount + node[2]
-                    qec_table = update_table(qec_table,q_return,(node[0],node[1]))
+                    self.update_table(q_return,(node[0],node[1]))
             self.total_reward.append(reward_per_epoch/episodes_per_epoch)
             self.total_sum_reward += reward_per_epoch
             # print('Average Reward: '+ str(sum(ep_avg_reward)/len(ep_avg_reward)))
-            print('Average Epoch ' + str(i) + ' Reward: ' + str(total_reward[-1]))
-            print('Total Reward: ' + str(total_sum_reward))
+            print('Average Epoch ' + str(i) + ' Reward: ' + str(self.total_reward[-1]))
+            print('Total Reward: ' + str(self.total_sum_reward))
 
 buffer_size = 100000
 ec_discount = .99
@@ -121,7 +122,7 @@ knn = 11
 environment = gym.make('MountainCar-v0')
 rng = np.random.RandomState(123456)
 
-EC = Episodic_Control(environment, rng, continuous, buffer_size, ec_discount, min_epsilon, decay_rate,knn)
+EC = Episodic_Control(environment, epochs, rng, continuous, buffer_size, ec_discount, min_epsilon, decay_rate,knn)
 EC.train()
 
 # plot EC.total_reward for average reward over episodes
