@@ -31,6 +31,7 @@ class neural_net(nn.Module):
 
     def forward(self, state_in, action_in):
         """Pass inputs through network"""
+        # import pdb; pdb.set_trace()
         out = self.l1(state_in)
         # out = self.bn1(out)
         out = self.rel1(out)

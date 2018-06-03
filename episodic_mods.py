@@ -20,6 +20,7 @@ class Episodic_Control():
         self.decay_rate = decay_rate
         self.knn = knn
         self.qec_table = {}
+        self.filt_qec_table = {}
         self.action_size = self.env.action_space.n
         self.epochs = epochs
         # state_size = env.observation_space.shape[0]
@@ -65,6 +66,23 @@ class Episodic_Control():
         else:
             self.qec_table[new] = R
 
+    def filter_ds(self):
+        states,actions = zip(*[key for key,item in self.qec_table.items()])
+        g = [item for key,item in self.qec_table.items()]
+        states_j, actions_j = zip(*[key for key,item in self.filt_qec_table.items()])
+        g_j = [item for key,item in self.filt_qec_table.items()]
+        delta = 1
+        c = 1 #change this to decrease in size with number of epochs
+        for i in range(len(states)):
+            for j in range(len(states_j)):
+                if actions[i] == actions_j[j] and abs(states[i]-states_j[j]) < delta:
+                    if g[i] + c < g_j[j]:
+                        new = (states[i], actions[i])
+                        self.filt_qec_table[new] = g[i]
+                if g_j[j] < np.median(g_j): #medium
+                    old = (states_j[j], actions_j[j])
+                    self.filt_qec_table.pop(old, None)
+
     def train(self):
         ep_avg_reward = []
         self.total_reward = []
@@ -91,8 +109,11 @@ class Episodic_Control():
                     else:
 
                         for action in range(self.action_size):
+                            if np.isscalar(state):
+                                state = [state]
                             s_in = torch.Tensor([state])
                             a_in = torch.Tensor([[action]])
+                            # import pdb; pdb.set_trace()
                             pred = self.net(s_in, a_in)
                             value_t.append(pred.detach().numpy())
 
@@ -123,9 +144,14 @@ class Episodic_Control():
 
                     self.update_table(q_return,(node[0],node[1]))
                     va = torch.cat((va, torch.Tensor([[q_return]])),0)
+                # import pdb; pdb.set_trace()
                 state_tensor = torch.Tensor(np.array(state_tensor))
+                if len(state_tensor.size())==1:
+                    state_tensor = state_tensor.unsqueeze(1)
+
                 action_tensor = torch.Tensor(np.array(action_tensor)).unsqueeze(1)
                 self.optimizer.zero_grad()
+                # import pdb; pdb.set_trace()
                 pred = self.net(state_tensor, action_tensor)
                 loss = self.loss(pred,va)
                 loss.backward()
