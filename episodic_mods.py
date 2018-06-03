@@ -29,13 +29,11 @@ class Episodic_Control():
         else:
             self.state_dimension = 1
             self.state_size = self.env.observation_space.n
-
         self.net = neural_net(self.state_dimension,self.action_size,1)
         self.loss = nn.MSELoss()
         self.optimizer = torch.optim.Adam(self.net.parameters(),lr = .01)
 
     def knn_func(self,new):
-        # import pdb; pdb.set_trace()
         if len(self.qec_table)==0:
             return 0.0
         if new in self.qec_table.keys():
@@ -53,7 +51,6 @@ class Episodic_Control():
             query_pt = np.array(new[0]).reshape(1,-1)
         states_a = np.reshape(states,(len(states),dim2))
         tree = KDTree(states_a)
-        # import pdb; pdb.set_trace()
         dist, ind = tree.query(query_pt, k)
         value = 0
         for index in ind[0]:
@@ -62,7 +59,6 @@ class Episodic_Control():
         return value / knn
 
     def update_table(self,R,new):
-        # import pdb; pdb.set_trace()
         if new in self.qec_table.keys():
             if R>self.qec_table[new]:
                 self.qec_table[new] = R
@@ -88,31 +84,23 @@ class Episodic_Control():
                     value_t = []
                     if not np.isscalar(state):
                         state_t = tuple(state)
-                    # epsilon greedy
+                    else:
+                        state_t = state
                     if rng.rand() < epsilon:
                         maximum_action = rng.randint(0, self.action_size)
                     else:
-                        vp = torch.Tensor(0,0)
-                        va = torch.Tensor(0,0)
+
                         for action in range(self.action_size):
                             s_in = torch.Tensor([state])
                             a_in = torch.Tensor([[action]])
-                            # import pdb; pdb.set_trace()
                             pred = self.net(s_in, a_in)
-                            actual = self.knn_func((state_t,action))
-
                             value_t.append(pred.detach().numpy())
-                            if sum(value_t)==0:
-                                maximum_action = rng.randint(0, self.action_size)
-                            else:
-                                maximum_action = np.argmax(value_t)
 
-                            vp = torch.cat((vp,pred),0)
-                            va = torch.cat((va, torch.Tensor([[actual]])),0)
-                        self.optimizer.zero_grad()
-                        loss = self.loss(vp,va)
-                        loss.backward()
-                        self.optimizer.step()
+                        if sum(value_t)==0:
+                            maximum_action = rng.randint(0, self.action_size)
+                        else:
+                            maximum_action = np.argmax(value_t)
+
                     next_state, reward, done , _ = self.env.step(maximum_action)
 
                     trace_list.append((state_t, maximum_action, reward, done))
@@ -124,16 +112,27 @@ class Episodic_Control():
                 episodes_per_epoch += 1
 
                 q_return = 0.
+                state_tensor = []
+                action_tensor = []
+                va = torch.Tensor(0,0)
                 for j in range(len(trace_list)-1, -1, -1):
                     node = trace_list[j]
                     q_return = q_return * ec_discount + node[2]
-                    self.update_table(q_return,(node[0],node[1]))
+                    state_tensor.append(node[0])
+                    action_tensor.append(node[1])
 
-                # train neural network here instead?
+                    self.update_table(q_return,(node[0],node[1]))
+                    va = torch.cat((va, torch.Tensor([[q_return]])),0)
+                state_tensor = torch.Tensor(np.array(state_tensor))
+                action_tensor = torch.Tensor(np.array(action_tensor)).unsqueeze(1)
+                self.optimizer.zero_grad()
+                pred = self.net(state_tensor, action_tensor)
+                loss = self.loss(pred,va)
+                loss.backward()
+                self.optimizer.step()
 
             self.total_reward.append(reward_per_epoch/episodes_per_epoch)
             self.total_sum_reward += reward_per_epoch
-            # print('Average Reward: '+ str(sum(ep_avg_reward)/len(ep_avg_reward)))
             print('Average Epoch ' + str(i) + ' Reward: ' + str(self.total_reward[-1]))
             print('Total Reward: ' + str(self.total_sum_reward))
 
@@ -142,9 +141,18 @@ ec_discount = .99
 min_epsilon = 0.01
 decay_rate = 10000
 epochs = 5000
-continuous = True
+continuous = False
 knn = 11
-environment = gym.make('MountainCar-v0')
+# environment = gym.make('MountainCar-v0')
+from gym.envs.registration import register
+register(
+    id='FrozenLakeNotSlippery-v0',
+    entry_point='gym.envs.toy_text:FrozenLakeEnv',
+    kwargs={'map_name' : '4x4', 'is_slippery': False},
+    max_episode_steps=100,
+    reward_threshold=0.78, # optimum = .8196
+)
+environment = gym.make('FrozenLakeNotSlippery-v0')
 rng = np.random.RandomState(123456)
 # net = neural_net()
 #(self, net, environment, rng, continuous, buffer_size, ec_discount, min_epsilon, decay_rate,knn)

@@ -100,7 +100,7 @@ class Episodic_Control():
                 reward_per_epoch += ep_reward
                 epoch_steps += steps
                 episodes_per_epoch += 1
-
+                print(ep_reward)
                 q_return = 0.
                 for j in range(len(trace_list)-1, -1, -1):
                     node = trace_list[j]
@@ -119,7 +119,16 @@ decay_rate = 10000
 epochs = 5000
 continuous = True
 knn = 11
-environment = gym.make('MountainCar-v0')
+# environment = gym.make('MountainCar-v0')
+from gym.envs.registration import register
+register(
+    id='FrozenLakeNotSlippery-v0',
+    entry_point='gym.envs.toy_text:FrozenLakeEnv',
+    kwargs={'map_name' : '4x4', 'is_slippery': False},
+    max_episode_steps=100,
+    reward_threshold=0.78, # optimum = .8196
+)
+env = gym.make('FrozenLakeNotSlippery-v0')
 rng = np.random.RandomState(123456)
 
 EC = Episodic_Control(environment, epochs, rng, continuous, buffer_size, ec_discount, min_epsilon, decay_rate,knn)
