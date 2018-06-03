@@ -39,7 +39,7 @@ class Episodic_Control():
             return 0.0
         if new in self.qec_table.keys():
             return self.qec_table[new]
-        states,actions = zip(*[key for key,item in self.qec_table.items()])
+        states,actions = zip(*[key for key,item in self.qec_table.items() if key[1]==new[1]])
         if len(self.qec_table) < self.knn:
             k = len(self.qec_table)
         else:

@@ -15,7 +15,7 @@ def knn(table,new,knn=11):
         return 0.0
     if new in table.keys():
         return table[new]
-    states,actions = zip(*[key for key,item in table.items()])
+    states,actions = zip(*[key for key,item in table.items() if key[1]==new[1]])
     if len(table) < knn:
         k = len(table)
     else:

@@ -33,7 +33,7 @@ class Episodic_Control():
             return 0.0
         if new in self.qec_table.keys():
             return self.qec_table[new]
-        states,actions = zip(*[key for key,item in self.qec_table.items()])
+        states,actions = zip(*[key for key,item in self.qec_table.items() if key[1]==new[1]])
         if len(self.qec_table) < self.knn:
             k = len(self.qec_table)
         else:
@@ -51,7 +51,7 @@ class Episodic_Control():
         value = 0
         for index in ind[0]:
             value += self.qec_table[(states[index],actions[index])]
-
+            # import pdb; pdb.set_trace()
         return value / knn
 
     def update_table(self,R,new):
@@ -86,13 +86,15 @@ class Episodic_Control():
                     else:
                         for action in range(self.action_size):
                             value_t.append(self.knn_func((state,action)))
-                            if sum(value_t)==0:
-                                maximum_action = rng.randint(0, self.action_size)
-                            else:
-                                maximum_action = np.argmax(value_t)
-
+                        if len(set(value_t))==1:
+                            # print('values_equal')
+                            maximum_action = rng.randint(0, self.action_size)
+                        else:
+                            # print('values unequal')
+                            # import pdb; pdb.set_trace()
+                            maximum_action = np.argmax(value_t)
+                        # import pdb; pdb.set_trace()
                     next_state, reward, done , _ = self.env.step(maximum_action)
-
                     trace_list.append((state, maximum_action, reward, done))
                     state = next_state
                     ep_reward += reward # total reward for this episode: 1 if convergence
