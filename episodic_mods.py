@@ -8,6 +8,7 @@ import pickle
 import heapq
 from sklearn.neighbors import BallTree,KDTree
 from neural_net import *
+#import pdb; pdb.set_trace
 
 class Episodic_Control():
     def __init__(self, environment, epochs, rng, continuous, buffer_size, ec_discount, min_epsilon, decay_rate,knn):
@@ -84,7 +85,7 @@ class Episodic_Control():
                     if g[i] + c < g_j[j]:
                         new = (states[i], actions[i])
                         self.filt_qec_table[new] = g[i]
-                if g_j[j] < np.mean(g_j):
+                if g_j[j] < np.median(g_j): #medium
                     old = (states_j[j], actions_j[j])
                     self.filt_qec_table.pop(old, None)
 
