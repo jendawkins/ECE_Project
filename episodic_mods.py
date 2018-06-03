@@ -1,6 +1,6 @@
 import gym
 import numpy as np
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 # __author__ = 'sudeep raja'
 import numpy as np
 # import _pickle as cPickle
@@ -20,8 +20,10 @@ class Episodic_Control():
         self.decay_rate = decay_rate
         self.knn = knn
         self.qec_table = {}
+        self.filt_qec_table = {}
         self.action_size = self.env.action_space.n
         self.epochs = epochs
+
         # state_size = env.observation_space.shape[0]
         if continuous:
             self.state_dimension = self.env.observation_space.shape[0]
@@ -68,6 +70,23 @@ class Episodic_Control():
                 self.qec_table[new] = R
         else:
             self.qec_table[new] = R
+
+    def filter_ds(self):
+        states,actions = zip(*[key for key,item in self.qec_table.items()])
+        g = [item for key,item in self.qec_table.items()]
+        states_j, actions_j = zip(*[key for key,item in self.filt_qec_table.items()])
+        g_j = [item for key,item in self.filt_qec_table.items()]
+        delta = 1
+        c = #change this to decrease in size with number of epochs
+        for i in len(states):
+            for j in len(states_j):
+                if actions[i] = actions_j[j] and abs(states-states_j) < delta:
+                    if g[i] + c < g_j[j]:
+                        new = (states[i], actions[j])
+                        self.filt_qec_table[new] = g[i]
+                if g_j[j] < avg(g_j):
+                    old = (states_j[i], actions_j[j])
+                    self.filt_qec_table.pop('old',None)
 
     def train(self):
         ep_avg_reward = []
