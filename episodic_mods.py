@@ -32,7 +32,7 @@ class Episodic_Control():
             self.state_size = self.env.observation_space.n
         self.net = neural_net(self.state_dimension,self.action_size,1)
         self.loss = nn.MSELoss()
-        self.optimizer = torch.optim.Adam(self.net.parameters(),lr = .01)
+        self.optimizer = torch.optim.Adam(self.net.parameters(),lr = .001)
 
     def knn_func(self,new):
         if len(self.qec_table)==0:
@@ -83,7 +83,7 @@ class Episodic_Control():
                     old = (states_j[j], actions_j[j])
                     self.filt_qec_table.pop(old, None)
 
-    def train(self):
+    def train_net(self):
         ep_avg_reward = []
         self.total_reward = []
         self.total_sum_reward = 0
@@ -114,14 +114,14 @@ class Episodic_Control():
                             s_in = torch.Tensor([state])
                             a_in = torch.Tensor([[action]])
                             # import pdb; pdb.set_trace()
+                            self.net.eval()
                             pred = self.net(s_in, a_in)
-                            value_t.append(pred.detach().numpy())
-
+                            value_t.append(pred.detach().numpy()[0][0])
                         if sum(value_t)==0:
                             maximum_action = rng.randint(0, self.action_size)
                         else:
                             maximum_action = np.argmax(value_t)
-
+                        # import pdb; pdb.set_trace()
                     next_state, reward, done , _ = self.env.step(maximum_action)
 
                     trace_list.append((state_t, maximum_action, reward, done))
@@ -136,15 +136,21 @@ class Episodic_Control():
                 state_tensor = []
                 action_tensor = []
                 va = torch.Tensor(0,0)
+                self.net.train()
+                # update qec table
                 for j in range(len(trace_list)-1, -1, -1):
                     node = trace_list[j]
                     q_return = q_return * ec_discount + node[2]
-                    state_tensor.append(node[0])
-                    action_tensor.append(node[1])
+                    # state_tensor.append(node[0])
+                    # action_tensor.append(node[1])
 
                     self.update_table(q_return,(node[0],node[1]))
-                    va = torch.cat((va, torch.Tensor([[q_return]])),0)
-                # import pdb; pdb.set_trace()
+                    # va = torch.cat((va, torch.Tensor([[q_return]])),0)
+
+                # train network on updated table
+                s_a, va = zip(*[(key,item) for key,item in self.qec_table.items()])
+                va = torch.Tensor(np.array(va)).unsqueeze(1)
+                state_tensor, action_tensor = zip(*s_a)
                 state_tensor = torch.Tensor(np.array(state_tensor))
                 if len(state_tensor.size())==1:
                     state_tensor = state_tensor.unsqueeze(1)
@@ -154,6 +160,8 @@ class Episodic_Control():
                 # import pdb; pdb.set_trace()
                 pred = self.net(state_tensor, action_tensor)
                 loss = self.loss(pred,va)
+                # if i==1:
+                    # import pdb; pdb.set_trace()
                 loss.backward()
                 self.optimizer.step()
 
@@ -161,13 +169,13 @@ class Episodic_Control():
             self.total_sum_reward += reward_per_epoch
             print('Average Epoch ' + str(i) + ' Reward: ' + str(self.total_reward[-1]))
             print('Total Reward: ' + str(self.total_sum_reward))
+            # print(self.qec_table)
 
 buffer_size = 100000
 ec_discount = .99
 min_epsilon = 0.01
-decay_rate = 10000
+decay_rate = 100
 epochs = 5000
-continuous = False
 knn = 11
 # environment = gym.make('MountainCar-v0')
 from gym.envs.registration import register
@@ -180,9 +188,10 @@ register(
 )
 environment = gym.make('FrozenLakeNotSlippery-v0')
 rng = np.random.RandomState(123456)
+continuous = isinstance(environment.observation_space, gym.spaces.Discrete)==False
 # net = neural_net()
 #(self, net, environment, rng, continuous, buffer_size, ec_discount, min_epsilon, decay_rate,knn)
 EC = Episodic_Control(environment, epochs, rng, continuous, buffer_size, ec_discount, min_epsilon, decay_rate,knn)
-EC.train()
+EC.train_net()
 
 # plot EC.total_reward for average reward over episodes

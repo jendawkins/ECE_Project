@@ -117,20 +117,21 @@ class Episodic_Control():
 buffer_size = 100000
 ec_discount = .99
 min_epsilon = 0.01
-decay_rate = 10000
+decay_rate = 1000
 epochs = 5000
-continuous = True
+# continuous = False
 knn = 11
-environment = gym.make('MountainCar-v0')
-# from gym.envs.registration import register
-# register(
-#     id='FrozenLakeNotSlippery-v0',
-#     entry_point='gym.envs.toy_text:FrozenLakeEnv',
-#     kwargs={'map_name' : '4x4', 'is_slippery': False},
-#     max_episode_steps=100,
-#     reward_threshold=0.78, # optimum = .8196
-# )
-# environment = gym.make('FrozenLakeNotSlippery-v0')
+# environment = gym.make('MountainCar-v0')
+from gym.envs.registration import register
+register(
+    id='FrozenLakeNotSlippery-v0',
+    entry_point='gym.envs.toy_text:FrozenLakeEnv',
+    kwargs={'map_name' : '4x4', 'is_slippery': False},
+    max_episode_steps=100,
+    reward_threshold=0.78, # optimum = .8196
+)
+environment = gym.make('FrozenLakeNotSlippery-v0')
+continuous = isinstance(environment.observation_space, gym.spaces.Discrete)==False
 rng = np.random.RandomState(123456)
 
 EC = Episodic_Control(environment, epochs, rng, continuous, buffer_size, ec_discount, min_epsilon, decay_rate,knn)
