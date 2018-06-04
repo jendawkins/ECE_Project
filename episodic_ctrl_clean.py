@@ -6,6 +6,7 @@ import numpy as np
 # import _pickle as cPickle
 import pickle
 import heapq
+import scipy
 from sklearn.neighbors import BallTree,KDTree
 
 class Episodic_Control():
@@ -29,7 +30,9 @@ class Episodic_Control():
             self.state_dimension = 1
             self.state_size = self.env.observation_space.n
         if self.images:
-            self._initialize_projection_function(self.state_dimension, 84*84)
+
+            self.state_dimension = self.env.observation_space.shape
+            self._initialize_projection_function(84*84*self.state_dimension[2])
 
     def knn_func(self,new):
         if len(self.qec_table)==0:
@@ -49,12 +52,10 @@ class Episodic_Control():
             query_pt = np.array(new[0]).reshape(1,-1)
         states_a = np.reshape(states,(len(states),dim2))
         tree = KDTree(states_a)
-        # import pdb; pdb.set_trace()
         dist, ind = tree.query(query_pt, k)
         value = 0
         for index in ind[0]:
             value += self.qec_table[(states[index],actions[index])]
-            # import pdb; pdb.set_trace()
         return value / knn
 
     def update_table(self,R,new):
@@ -64,8 +65,8 @@ class Episodic_Control():
         else:
             self.qec_table[new] = R
 
-    def initialize_projection_function(self, dimension_result, dimension_observation):
-        self.matrix_projection = self.rng.randn(dimension_result, dimension_observation).astype(np.float32)
+    def _initialize_projection_function(self, dimension_observation):
+        self.matrix_projection = self.rng.randn(64,dimension_observation).astype(np.float32)
 
     def train(self):
         ep_avg_reward = []
@@ -77,27 +78,28 @@ class Episodic_Control():
             reward_per_epoch = 0
             while epoch_steps < 10000:
                 state = self.env.reset()
-                if self.images:
-                    state = np.dot(self.matrix_projection, state.flatten())
-
+                    # state = np.reshape(state,(len(state),1))
                 done = False
                 epsilon = self.min_epsilon + (1.0 - self.min_epsilon)*np.exp(-self.decay_rate*i)
                 steps = 0.
                 ep_reward = 0.
                 trace_list = []
                 while not done:
+                    if self.images:
+                        state = scipy.misc.imresize(state, size=(84,84))
+                        state = np.dot(self.matrix_projection, state.flatten())
                     value_t = []
                     if not np.isscalar(state):
                         state = tuple(state)
                     # epsilon greedy
-                    if rng.rand() < epsilon:
-                        maximum_action = rng.randint(0, self.action_size)
+                    if self.rng.rand() < epsilon:
+                        maximum_action = self.rng.randint(0, self.action_size)
                     else:
                         for action in range(self.action_size):
                             value_t.append(self.knn_func((state,action)))
                         if len(set(value_t))==1:
                             # print('values_equal')
-                            maximum_action = rng.randint(0, self.action_size)
+                            maximum_action = self.rng.randint(0, self.action_size)
                         else:
                             # print('values unequal')
                             # import pdb; pdb.set_trace()
@@ -115,7 +117,7 @@ class Episodic_Control():
                 q_return = 0.
                 for j in range(len(trace_list)-1, -1, -1):
                     node = trace_list[j]
-                    q_return = q_return * ec_discount + node[2]
+                    q_return = q_return * self.ec_discount + node[2]
                     self.update_table(q_return,(node[0],node[1]))
             self.total_reward.append(reward_per_epoch/episodes_per_epoch)
             self.total_sum_reward += reward_per_epoch
@@ -140,7 +142,8 @@ register(
     reward_threshold=0.78, # optimum = .8196
 )
 # environment = gym.make('FrozenLakeNotSlippery-v0')
-environment = gym.make('CartPole-v0')
+# environment = gym.make('CartPole-v0')
+environment = gym.make('MsPacman-v0')
 continuous = isinstance(environment.observation_space, gym.spaces.Discrete)==False
 rng = np.random.RandomState(123456)
 
@@ -149,7 +152,7 @@ try:
     images = True
 except:
     images = False
-
+images = True
 EC = Episodic_Control(environment, epochs, rng, continuous, buffer_size, ec_discount, min_epsilon, decay_rate,knn,images)
 EC.train()
 
