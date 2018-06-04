@@ -1,6 +1,6 @@
 import gym
 import numpy as np
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 # __author__ = 'sudeep raja'
 import numpy as np
 # import _pickle as cPickle
@@ -71,11 +71,18 @@ class Episodic_Control():
         ep_avg_reward = []
         self.total_reward = []
         self.total_sum_reward = 0
+        VISUALIZE = True
+        logging_interval = 100
+        animate_interval = logging_interval/10
         for i in range(self.epochs):
             epoch_steps = 0
             episodes_per_epoch = 0
             reward_per_epoch = 0
+            animate_this_episode = (i % animate_interval == 0) and VISUALIZE
             while epoch_steps < 10000:
+                if animate_this_episode:
+                                self.env.render()
+                                time.sleep(0.05)
                 state = self.env.reset()
                 if self.images:
                     state = np.dot(self.matrix_projection, state.flatten())
@@ -149,6 +156,19 @@ try:
     images = True
 except:
     images = False
+
+logging_interval = 100
+logdir='./videos_cartpole/'
+
+VISUALIZE = True
+
+import os
+import time
+
+if VISUALIZE:
+    if not os.path.exists(logdir):
+        os.mkdir(logdir)
+    environment = gym.wrappers.Monitor(environment, logdir, force=True, video_callable=lambda episode_id: episode_id%logging_interval==0)
 
 EC = Episodic_Control(environment, epochs, rng, continuous, buffer_size, ec_discount, min_epsilon, decay_rate,knn,images)
 EC.train()
