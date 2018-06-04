@@ -32,7 +32,7 @@ class Episodic_Control():
             self.state_size = self.env.observation_space.n
         self.net = neural_net(self.state_dimension,self.action_size,1)
         self.loss = nn.MSELoss()
-        self.optimizer = torch.optim.Adam(self.net.parameters(),lr = .001)
+        self.optimizer = torch.optim.Adam(self.net.parameters(),lr = .08)
 
     def knn_func(self,new):
         if len(self.qec_table)==0:
@@ -82,6 +82,7 @@ class Episodic_Control():
                 if g_j[j] < np.median(g_j): #medium
                     old = (states_j[j], actions_j[j])
                     self.filt_qec_table.pop(old, None)
+
 
     def train_net(self):
         ep_avg_reward = []
@@ -145,7 +146,7 @@ class Episodic_Control():
                     # action_tensor.append(node[1])
 
                     self.update_table(q_return,(node[0],node[1]))
-                    # va = torch.cat((va, torch.Tensor([[q_return]])),0)
+                    # va = torch.cat((v a, torch.Tensor([[q_return]])),0)
 
                 # train network on updated table
                 s_a, va = zip(*[(key,item) for key,item in self.qec_table.items()])
@@ -156,12 +157,18 @@ class Episodic_Control():
                     state_tensor = state_tensor.unsqueeze(1)
 
                 action_tensor = torch.Tensor(np.array(action_tensor)).unsqueeze(1)
-                self.optimizer.zero_grad()
-                # import pdb; pdb.set_trace()
                 pred = self.net(state_tensor, action_tensor)
+                # for k in range(va.size(0)):
+                #     def closure():
+                #         self.optimizer.zero_grad()
+                #         output = self.net(state_tensor[k,:].unsqueeze(0),action_tensor[k,:].unsqueeze(0))
+                #         loss = self.loss(output, va[k,:].unsqueeze(0))
+                #         loss.backward()
+                #         return loss
+                #     self.optimizer.step(closure)
+
+                self.optimizer.zero_grad()
                 loss = self.loss(pred,va)
-                # if i==1:
-                    # import pdb; pdb.set_trace()
                 loss.backward()
                 self.optimizer.step()
 

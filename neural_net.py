@@ -46,5 +46,5 @@ class neural_net(nn.Module):
         # Xavier: mean = 0 and stdev = 1/sqrt(# inputs)
         for layer in self.layers:
             if isinstance(layer, nn.Linear):
-                nn.init.normal(layer.weight)
-                nn.init.constant(layer.bias,0.1)
+                nn.init.normal_(layer.weight)
+                nn.init.constant_(layer.bias,0.1)

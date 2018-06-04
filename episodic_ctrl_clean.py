@@ -28,6 +28,8 @@ class Episodic_Control():
         else:
             self.state_dimension = 1
             self.state_size = self.env.observation_space.n
+        if self.images:
+            self._initialize_projection_function(self.state_dimension, 84*84)
 
     def knn_func(self,new):
         if len(self.qec_table)==0:
