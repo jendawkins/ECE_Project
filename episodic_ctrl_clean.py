@@ -9,7 +9,8 @@ import heapq
 from sklearn.neighbors import BallTree,KDTree
 
 class Episodic_Control():
-    def __init__(self, environment, epochs, rng, continuous, buffer_size, ec_discount, min_epsilon, decay_rate,knn):
+    def __init__(self, environment, epochs, rng, continuous, buffer_size, ec_discount, min_epsilon, decay_rate,knn,images):
+        self.images = images
         self.env = environment
         self.rng = rng
         self.buffer_size = buffer_size
@@ -61,6 +62,9 @@ class Episodic_Control():
         else:
             self.qec_table[new] = R
 
+    def initialize_projection_function(self, dimension_result, dimension_observation):
+        self.matrix_projection = self.rng.randn(dimension_result, dimension_observation).astype(np.float32)
+
     def train(self):
         ep_avg_reward = []
         self.total_reward = []
@@ -71,6 +75,9 @@ class Episodic_Control():
             reward_per_epoch = 0
             while epoch_steps < 10000:
                 state = self.env.reset()
+                if self.images:
+                    state = np.dot(self.matrix_projection, state.flatten())
+
                 done = False
                 epsilon = self.min_epsilon + (1.0 - self.min_epsilon)*np.exp(-self.decay_rate*i)
                 steps = 0.
@@ -133,6 +140,12 @@ register(
 environment = gym.make('FrozenLakeNotSlippery-v0')
 continuous = isinstance(environment.observation_space, gym.spaces.Discrete)==False
 rng = np.random.RandomState(123456)
+
+try:
+    environment.ale
+    images = True
+except:
+    images = False
 
 EC = Episodic_Control(environment, epochs, rng, continuous, buffer_size, ec_discount, min_epsilon, decay_rate,knn)
 EC.train()
