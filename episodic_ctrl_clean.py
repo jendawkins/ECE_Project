@@ -139,7 +139,8 @@ register(
     max_episode_steps=100,
     reward_threshold=0.78, # optimum = .8196
 )
-environment = gym.make('FrozenLakeNotSlippery-v0')
+# environment = gym.make('FrozenLakeNotSlippery-v0')
+environment = gym.make('CartPole-v0')
 continuous = isinstance(environment.observation_space, gym.spaces.Discrete)==False
 rng = np.random.RandomState(123456)
 
@@ -149,7 +150,7 @@ try:
 except:
     images = False
 
-EC = Episodic_Control(environment, epochs, rng, continuous, buffer_size, ec_discount, min_epsilon, decay_rate,knn)
+EC = Episodic_Control(environment, epochs, rng, continuous, buffer_size, ec_discount, min_epsilon, decay_rate,knn,images)
 EC.train()
 
 # plot EC.total_reward for average reward over episodes

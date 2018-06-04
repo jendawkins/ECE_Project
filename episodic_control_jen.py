@@ -167,7 +167,7 @@ for i in range(epochs):
             else:
                 for action in range(action_size):
                     value_t.append(qec_table.estimate(state, action))
-                    if sum(value_t)==0:
+                    if len(set(value_t))==1:
                         maximum_action = rng.randint(0, action_size)
                     else:
                         maximum_action = np.argmax(value_t)
@@ -181,6 +181,3 @@ for i in range(epochs):
             node = trace_list[j]
             q_return = q_return * ec_discount + node[2]
             qec_table.update(node[0], node[1], q_return)
-    if not i % 100:
-        print(q_return)
-        print(epsilon)

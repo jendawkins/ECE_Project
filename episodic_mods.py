@@ -32,7 +32,7 @@ class Episodic_Control():
             self.state_size = self.env.observation_space.n
         self.net = neural_net(self.state_dimension,self.action_size,1)
         self.loss = nn.MSELoss()
-        self.optimizer = torch.optim.Adam(self.net.parameters(),lr = .08)
+        self.optimizer = torch.optim.Adam(self.net.parameters(),lr = .00001)
 
     def knn_func(self,new):
         if len(self.qec_table)==0:
@@ -118,7 +118,7 @@ class Episodic_Control():
                             self.net.eval()
                             pred = self.net(s_in, a_in)
                             value_t.append(pred.detach().numpy()[0][0])
-                        if sum(value_t)==0:
+                        if len(set(value_t))==1:
                             maximum_action = rng.randint(0, self.action_size)
                         else:
                             maximum_action = np.argmax(value_t)
