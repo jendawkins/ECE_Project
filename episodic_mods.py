@@ -9,10 +9,11 @@ import heapq
 from sklearn.neighbors import BallTree,KDTree
 from neural_net import *
 import time
+from scipy.spatial.distance import cdist
 
 class Episodic_Control():
-    def __init__(self, environment, epochs, rng, continuous, buffer_size, ec_discount, min_epsilon, decay_rate,knn):
-
+    def __init__(self, environment, epochs, rng, continuous, buffer_size, ec_discount, min_epsilon, decay_rate,knn,lrr,filter):
+        self.lr = lrr
         self.env = environment
         self.rng = rng
         self.buffer_size = buffer_size
@@ -33,7 +34,7 @@ class Episodic_Control():
             self.state_size = self.env.observation_space.n
         self.net = neural_net(self.state_dimension,self.action_size,1)
         self.loss = nn.MSELoss()
-        self.optimizer = torch.optim.RMSprop(self.net.parameters(),lr = .1)
+        self.optimizer = torch.optim.RMSprop(self.net.parameters(),lr = self.lr)
 
     def knn_func(self,new):
         if len(self.qec_table)==0:
@@ -60,12 +61,24 @@ class Episodic_Control():
 
         return value / knn
 
-    def update_table(self,R,new):
+    def update_table(self,R,new,const):
         if new in self.qec_table.keys():
             if R>self.qec_table[new]:
                 self.qec_table[new] = R
-        else:
+        elif len(self.qec_table)<10:
             self.qec_table[new] = R
+        else:
+            states,actions = zip(*[key for key,item in self.qec_table.items()])
+            goals = [item for key, item in self.qec_table.items()]
+            delta = np.std(np.array(states),axis = 0)
+            delt = np.sqrt(delta[0]**2 + delta[1]**2)
+            const = 1
+            idxs = np.where(cdist(np.array(states),np.array([new[0]]))<delt)[0]
+            if new[1] not in np.array(actions)[idxs] or (R + const > np.array(goals)[idxs]).all():
+                # if R + c < goals[idxs].all():
+                    # self.qec_table[]
+                self.qec_table[new] = R
+            # elif R + c > goals[idxs].all():
 
     def filter_ds(self):
         states,actions = zip(*[key for key,item in self.qec_table.items()])
@@ -96,9 +109,12 @@ class Episodic_Control():
             episodes_per_epoch = 0
             reward_per_epoch = 0
             while epoch_steps < 10000:
-                self.env.reset()
-                state = self.env.observation_space.sample()
-                self.env.env.state = state
+                if i < 5:
+                    self.env.reset()
+                    state = self.env.observation_space.sample()
+                    self.env.env.state = state
+                else:
+                    state = self.env.reset()
                 done = False
                 epsilon = self.min_epsilon + (1.0 - self.min_epsilon)*np.exp(-self.decay_rate*i)
                 steps = 0.
@@ -144,23 +160,21 @@ class Episodic_Control():
                 va = torch.Tensor(0,0)
                 self.net.train()
                 # update qec table
+                const = epsilon
                 for j in range(len(trace_list)-1, -1, -1):
                     node = trace_list[j]
                     q_return = q_return * self.ec_discount + node[2]
 
-                    self.update_table(q_return,(node[0],node[1]))
-                # start = time.time()
-                self.filter_ds()
-                # end = time.time()
+                    self.update_table(q_return,(node[0],node[1]),const)
 
                 # train network on updated table
-                s_a, va = zip(*[(key,item) for key,item in self.filt_qec_table.items()])
+                s_a, va = zip(*[(key,item) for key,item in self.qec_table.items()])
                 va = torch.Tensor(np.array(va)).unsqueeze(1)
                 state_tensor, action_tensor = zip(*s_a)
                 state_tensor = torch.Tensor(np.array(state_tensor))
                 if len(state_tensor.size())==1:
                     state_tensor = state_tensor.unsqueeze(1)
-                if len(self.filt_qec_table)==1:
+                if len(self.qec_table)==1:
                     self.net.eval()
                 action_tensor = torch.Tensor(np.array(action_tensor)).unsqueeze(1)
                 pred = self.net(state_tensor, action_tensor)
@@ -182,7 +196,7 @@ class Episodic_Control():
             self.total_sum_reward += reward_per_epoch
             print('Average Epoch ' + str(i) + ' Reward: ' + str(self.total_reward[-1]))
             print('Total Reward: ' + str(self.total_sum_reward))
-            print(len(self.qec_table))
+            # print(len(self.qec_table))
             # print(self.qec_table)
 
 buffer_size = 100000
@@ -191,6 +205,8 @@ min_epsilon = 0.01
 decay_rate = 1
 epochs = 5000
 knn = 11
+filter = True
+learning_rate = .01
 rng = np.random.RandomState(123456)
 environment = gym.make('MountainCar-v0')
 # from gym.envs.registration import register
@@ -206,7 +222,7 @@ rng = np.random.RandomState(123456)
 continuous = isinstance(environment.observation_space, gym.spaces.Discrete)==False
 # net = neural_net()
 #(self, net, environment, rng, continuous, buffer_size, ec_discount, min_epsilon, decay_rate,knn)
-EC = Episodic_Control(environment, epochs, rng, continuous, buffer_size, ec_discount, min_epsilon, decay_rate,knn)
+EC = Episodic_Control(environment, epochs, rng, continuous, buffer_size, ec_discount, min_epsilon, decay_rate,knn,learning_rate, filter)
 EC.train_net()
 
 # plot EC.total_reward for average reward over episodes
