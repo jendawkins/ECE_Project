@@ -10,7 +10,9 @@ import scipy
 from sklearn.neighbors import BallTree,KDTree
 
 class Episodic_Control():
-    def __init__(self, environment, epochs, rng, continuous, buffer_size, ec_discount, min_epsilon, decay_rate,knn,images):
+    def __init__(self, environment, epochs, rng, continuous, buffer_size, ec_discount, min_epsilon, decay_rate,knn,images,filter_buffer):
+        self.filter = filter_buffer
+        self.counter = {}
         self.images = images
         self.env = environment
         self.rng = rng
@@ -62,13 +64,42 @@ class Episodic_Control():
         if new in self.qec_table.keys():
             if R>self.qec_table[new]:
                 self.qec_table[new] = R
-        else:
+        # else:
+        #     self.qec_table[new] = R
+        elif len(self.qec_table)<10 or not self.filter:
             self.qec_table[new] = R
+            self.counter[new] = 1
+        else:
+            states,actions = zip(*[key for key,item in self.qec_table.items()])
+            goals = [item for key, item in self.qec_table.items()]
+            delta = np.std(np.array(states),axis = 0)
+            delt = np.sqrt(delta[0]**2 + delta[1]**2)
+            idxs = np.where(cdist(np.array(states),np.array([new[0]]))<delt)[0]
+            med_arr = np.median(np.array(goals)[idxs])
+            if new[1] not in np.array(actions)[idxs] or R + const > med_arr:
+                # if R + c < goals[idxs].all():
+                    # self.qec_table[]
+                self.qec_table[new] = R
+                self.counter[new] = 1
+            for idx in idxs:
+                if goals[idx] + const < med_arr:
+                    # import pdb; pdb.set_trace()
+                    self.qec_table.pop((states[idx],actions[idx]))
+                    self.counter.pop((states[idx],actions[idx]))
+        if len(self.qec_table)>self.buffer_size:
+            if len(set(self.counter.keys()))==1:
+                id = np.random.randint(0,len(self.qec_table))
+                del self.qec_table[(states[id],actions[id])]
+                del self.counter[(states[id],actions[id])]
+            else:
+                del self.qec_table[min(self.counter, key=self.counter.get)]
+                del self.counter[min(self.counter, key=self.counter.get)]
+
 
     def _initialize_projection_function(self, dimension_observation):
         self.matrix_projection = self.rng.randn(64,dimension_observation).astype(np.float32)
 
-    def train(self):
+    def train(self,VISUALIZE):
         ep_avg_reward = []
         self.total_reward = []
         self.total_sum_reward = 0
@@ -77,14 +108,21 @@ class Episodic_Control():
             episodes_per_epoch = 0
             reward_per_epoch = 0
             while epoch_steps < 10000:
-                state = self.env.reset()
+                # state = self.env.reset()
+                self.env.reset()
+                state = self.env.observation_space.sample()
+                self.env.env.state = state
                     # state = np.reshape(state,(len(state),1))
                 done = False
                 epsilon = self.min_epsilon + (1.0 - self.min_epsilon)*np.exp(-self.decay_rate*i)
                 steps = 0.
                 ep_reward = 0.
                 trace_list = []
+                animate_this_episode = VISUALIZE and epoch_steps%1000==0
                 while not done:
+                    if animate_this_episode:
+                        self.env.render()
+                        time.sleep(0.05)
                     if self.images:
                         state = scipy.misc.imresize(state, size=(84,84))
                         state = np.dot(self.matrix_projection, state.flatten())
@@ -124,6 +162,13 @@ class Episodic_Control():
             # print('Average Reward: '+ str(sum(ep_avg_reward)/len(ep_avg_reward)))
             print('Average Epoch ' + str(i) + ' Reward: ' + str(self.total_reward[-1]))
             print('Total Reward: ' + str(self.total_sum_reward))
+            with open('log_pacman.csv','w') as f:
+                f.write(str(self.total_reward[-1]))
+            pickl_file = open('pacman.pkl','wb')
+            pickle.dump(self.qec_table,pickl_file)
+            pickl_file.close()
+            # with open('pacman.pkl','w') as pp:
+                # pp.dump()
 
 buffer_size = 100000
 ec_discount = .99
@@ -143,17 +188,15 @@ register(
 )
 # environment = gym.make('FrozenLakeNotSlippery-v0')
 # environment = gym.make('CartPole-v0')
-environment = gym.make('MsPacman-v0')
+environment = gym.make('Pendulum-v0')
 continuous = isinstance(environment.observation_space, gym.spaces.Discrete)==False
 rng = np.random.RandomState(123456)
 
-try:
-    environment.ale
-    images = True
-except:
-    images = False
+VISUALIZE = False
 images = True
-EC = Episodic_Control(environment, epochs, rng, continuous, buffer_size, ec_discount, min_epsilon, decay_rate,knn,images)
-EC.train()
+filter_buffer = False
+EC = Episodic_Control(environment, epochs, rng, continuous, buffer_size,
+                ec_discount, min_epsilon, decay_rate,knn,images,filter_buffer)
+EC.train(VISUALIZE)
 
 # plot EC.total_reward for average reward over episodes

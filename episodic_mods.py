@@ -88,12 +88,14 @@ class Episodic_Control():
                     self.qec_table.pop((states[idx],actions[idx]))
                     self.counter.pop((states[idx],actions[idx]))
                     # import pdb; pdb.set_trace()
-            if len(self.qec_table)>self.buffer_size:
-                if len(set(self.counter.keys()))==1:
-                    id = np.random.randint(0,len(self.qec_table))
-                    del self.qec_table[(states[id],actions[id])]
-                else:
-                    del self.qec_table[min(self.counter, key=d.get)]
+        if len(self.qec_table)>self.buffer_size:
+            if len(set(self.counter.keys()))==1:
+                id = np.random.randint(0,len(self.qec_table))
+                del self.qec_table[(states[id],actions[id])]
+                del self.counter[(states[id],actions[id])]
+            else:
+                del self.qec_table[min(self.counter, key=self.counter.get)]
+                del self.counter[min(self.counter, key=self.counter.get)]
             # elif R + c > goals[idxs].all():
 
     def filter_ds(self):
@@ -116,7 +118,7 @@ class Episodic_Control():
                     self.filt_qec_table.pop(old, None)
 
 
-    def train_net(self):
+    def train_net(self,VISUALIZE):
         ep_avg_reward = []
         self.total_reward = []
         self.total_sum_reward = 0
@@ -124,7 +126,11 @@ class Episodic_Control():
             epoch_steps = 0
             episodes_per_epoch = 0
             reward_per_epoch = 0
+            animate_this_episode = VISUALIZE and epoch_steps%1000==0
             while epoch_steps < 10000:
+                if animate_this_episode:
+                    self.env.render()
+                    time.sleep(0.05)
                 self.env.reset()
                 state = self.env.observation_space.sample()
                 self.env.env.state = state
@@ -202,11 +208,16 @@ class Episodic_Control():
             self.total_sum_reward += reward_per_epoch
             print('Average Epoch ' + str(i) + ' Reward: ' + str(self.total_reward[-1]))
             print('Total Reward: ' + str(self.total_sum_reward))
+            with open('MtCar_Net_Filter.csv','a') as f:
+                f.write(str(self.total_reward[-1]))
+            pickl_file = open('MtCar_Net_Filter.pkl','wb')
+            pickle.dump(self.qec_table,pickl_file)
+            pickl_file.close()
             # print(len(self.qec_table))
             # print(self.qec_table)
 
 buffer_size = 100000
-ec_discount = .8
+ec_discount = .9
 min_epsilon = 0.05
 decay_rate = 1
 epochs = 5000
@@ -215,6 +226,7 @@ filter = True
 learning_rate = .1
 rng = np.random.RandomState(123456)
 environment = gym.make('MountainCar-v0')
+VISUALIZE = False
 # from gym.envs.registration import register
 # register(
 #     id='FrozenLakeNotSlippery-v0',
@@ -228,7 +240,8 @@ rng = np.random.RandomState(123456)
 continuous = isinstance(environment.observation_space, gym.spaces.Discrete)==False
 # net = neural_net()
 #(self, net, environment, rng, continuous, buffer_size, ec_discount, min_epsilon, decay_rate,knn)
-EC = Episodic_Control(environment, epochs, rng, continuous, buffer_size, ec_discount, min_epsilon, decay_rate,knn,learning_rate, filter)
-EC.train_net()
+EC = Episodic_Control(environment, epochs, rng, continuous, buffer_size, ec_discount, min_epsilon,
+                decay_rate,knn,learning_rate, filter)
+EC.train_net(VISUALIZE)
 
 # plot EC.total_reward for average reward over episodes
