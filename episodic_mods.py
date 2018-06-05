@@ -73,10 +73,17 @@ class Episodic_Control():
             delta = np.std(np.array(states),axis = 0)
             delt = np.sqrt(delta[0]**2 + delta[1]**2)
             idxs = np.where(cdist(np.array(states),np.array([new[0]]))<delt)[0]
-            if new[1] not in np.array(actions)[idxs] or (R + const > np.array(goals)[idxs]).all():
+            med_arr = np.median(np.array(goals)[idxs])
+            if new[1] not in np.array(actions)[idxs] or R + const > med_arr:
                 # if R + c < goals[idxs].all():
                     # self.qec_table[]
                 self.qec_table[new] = R
+            for idx in idxs:
+                if goals[idx] + const < med_arr:
+                    # import pdb; pdb.set_trace()
+                    self.qec_table.pop((states[idx],actions[idx]))
+                    # import pdb; pdb.set_trace()
+
             # elif R + c > goals[idxs].all():
 
     def filter_ds(self):
