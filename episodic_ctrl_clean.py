@@ -8,9 +8,11 @@ import pickle
 import heapq
 import scipy
 from sklearn.neighbors import BallTree,KDTree
+from scipy.spatial.distance import cdist
+import cv2
 
 class Episodic_Control():
-    def __init__(self, environment, epochs, rng, continuous, buffer_size, ec_discount, min_epsilon, decay_rate,knn,images,filter_buffer):
+    def __init__(self, environment, epochs, rng, continuous, buffer_size, ec_discount, min_epsilon, decay_rate,knn,images,filter_buffer,load_data):
         self.filter = filter_buffer
         self.counter = {}
         self.images = images
@@ -34,7 +36,12 @@ class Episodic_Control():
         if self.images:
 
             self.state_dimension = self.env.observation_space.shape
-            self._initialize_projection_function(84*84*self.state_dimension[2])
+            self._initialize_projection_function(84*84)
+
+        if load_data:
+            file_table = open('MtCar_Net_Filter.pkl','rb')
+            self.qec_table = pickle.load(file_table)
+            file_table.close()
 
     def knn_func(self,new):
         if len(self.qec_table)==0:
@@ -101,6 +108,7 @@ class Episodic_Control():
 
     def train(self,VISUALIZE):
         ep_avg_reward = []
+        self.reward_per_ep = []
         self.total_reward = []
         self.total_sum_reward = 0
         for i in range(self.epochs):
@@ -118,12 +126,13 @@ class Episodic_Control():
                 steps = 0.
                 ep_reward = 0.
                 trace_list = []
-                animate_this_episode = VISUALIZE and epoch_steps%1000==0
+                animate_this_episode = VISUALIZE and steps%10000==0
                 while not done:
                     if animate_this_episode:
                         self.env.render()
                         time.sleep(0.05)
                     if self.images:
+                        state = cv2.cvtColor(state, cv2.COLOR_RGB2GRAY )
                         state = scipy.misc.imresize(state, size=(84,84))
                         state = np.dot(self.matrix_projection, state.flatten())
                     value_t = []
@@ -148,6 +157,7 @@ class Episodic_Control():
                     state = next_state
                     ep_reward += reward # total reward for this episode: 1 if convergence
                     steps += 1.0
+                self.reward_per_ep.append(ep_reward)
                 reward_per_epoch += ep_reward
                 epoch_steps += steps
                 episodes_per_epoch += 1
@@ -162,11 +172,14 @@ class Episodic_Control():
             # print('Average Reward: '+ str(sum(ep_avg_reward)/len(ep_avg_reward)))
             print('Average Epoch ' + str(i) + ' Reward: ' + str(self.total_reward[-1]))
             print('Total Reward: ' + str(self.total_sum_reward))
-            with open('log_pacman.csv','w') as f:
+            with open('log_pacman.csv','a') as f:
                 f.write(str(self.total_reward[-1]))
-            pickl_file = open('pacman.pkl','wb')
-            pickle.dump(self.qec_table,pickl_file)
-            pickl_file.close()
+            with open('log_pacman2.csv','a') as f:
+                f.write(str(self.reward_per_ep[-episodes_per_epoch:]))
+            if not VISUALIZE:
+                pickl_file = open('pacman2.pkl','wb')
+                pickle.dump(self.qec_table,pickl_file)
+                pickl_file.close()
             # with open('pacman.pkl','w') as pp:
                 # pp.dump()
 
@@ -193,6 +206,12 @@ continuous = isinstance(environment.observation_space, gym.spaces.Discrete)==Fal
 rng = np.random.RandomState(123456)
 
 VISUALIZE = False
+
+if VISUALIZE:
+    if not os.path.exists(logdir):
+        os.mkdir(logdir)
+    environment = gym.wrappers.Monitor(environment, logdir, force=True, video_callable=lambda episode_id: episode_id%logging_interval==0)
+
 images = True
 filter_buffer = False
 EC = Episodic_Control(environment, epochs, rng, continuous, buffer_size,

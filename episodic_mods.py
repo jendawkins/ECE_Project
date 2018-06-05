@@ -122,11 +122,12 @@ class Episodic_Control():
         ep_avg_reward = []
         self.total_reward = []
         self.total_sum_reward = 0
+        self.reward_per_ep = []
         for i in range(self.epochs):
             epoch_steps = 0
             episodes_per_epoch = 0
             reward_per_epoch = 0
-            animate_this_episode = VISUALIZE and epoch_steps%1000==0
+            animate_this_episode = VISUALIZE and steps%10000==0
             while epoch_steps < 10000:
                 if animate_this_episode:
                     self.env.render()
@@ -173,7 +174,7 @@ class Episodic_Control():
                 reward_per_epoch += ep_reward
                 epoch_steps += steps
                 episodes_per_epoch += 1
-
+                self.reward_per_ep.append(ep_reward)
                 q_return = 0.
                 state_tensor = []
                 action_tensor = []
@@ -210,6 +211,9 @@ class Episodic_Control():
             print('Total Reward: ' + str(self.total_sum_reward))
             with open('MtCar_Net_Filter.csv','a') as f:
                 f.write(str(self.total_reward[-1]))
+
+            with open('MtCar_Net_Filter2.csv','a') as f:
+                f.write(str(self.reward_per_ep[-eisodes_per_epoch:]))
             pickl_file = open('MtCar_Net_Filter.pkl','wb')
             pickle.dump(self.qec_table,pickl_file)
             pickl_file.close()
@@ -227,6 +231,12 @@ learning_rate = .1
 rng = np.random.RandomState(123456)
 environment = gym.make('MountainCar-v0')
 VISUALIZE = False
+
+if VISUALIZE:
+    if not os.path.exists(logdir):
+        os.mkdir(logdir)
+    environment = gym.wrappers.Monitor(environment, logdir, force=True, video_callable=lambda episode_id: episode_id%logging_interval==0)
+
 # from gym.envs.registration import register
 # register(
 #     id='FrozenLakeNotSlippery-v0',
