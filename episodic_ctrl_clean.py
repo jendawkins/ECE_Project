@@ -67,7 +67,7 @@ class Episodic_Control():
             value += self.qec_table[(states[index],actions[index])]
         return value / knn
 
-    def update_table(self,R,new):
+    def update_table(self,R,new,const):
         if new in self.qec_table.keys():
             if R>self.qec_table[new]:
                 self.qec_table[new] = R
@@ -106,6 +106,11 @@ class Episodic_Control():
     def _initialize_projection_function(self, dimension_observation):
         self.matrix_projection = self.rng.randn(64,dimension_observation).astype(np.float32)
 
+    def rgb2gray(self,rgb):
+        r, g, b = rgb[:,:,0], rgb[:,:,1], rgb[:,:,2]
+        gray = 0.2989 * r + 0.5870 * g + 0.1140 * b
+        return gray
+
     def train(self,VISUALIZE):
         ep_avg_reward = []
         self.reward_per_ep = []
@@ -132,7 +137,7 @@ class Episodic_Control():
                         self.env.render()
                         time.sleep(0.05)
                     if self.images:
-                        state = cv2.cvtColor(state, cv2.COLOR_RGB2GRAY )
+                        state = self.rgb2gray(state)
                         state = scipy.misc.imresize(state, size=(84,84))
                         state = np.dot(self.matrix_projection, state.flatten())
                     value_t = []
@@ -166,7 +171,7 @@ class Episodic_Control():
                 for j in range(len(trace_list)-1, -1, -1):
                     node = trace_list[j]
                     q_return = q_return * self.ec_discount + node[2]
-                    self.update_table(q_return,(node[0],node[1]))
+                    self.update_table(q_return,(node[0],node[1]),epsilon)
             self.total_reward.append(reward_per_epoch/episodes_per_epoch)
             self.total_sum_reward += reward_per_epoch
             # print('Average Reward: '+ str(sum(ep_avg_reward)/len(ep_avg_reward)))
@@ -201,7 +206,7 @@ register(
 )
 # environment = gym.make('FrozenLakeNotSlippery-v0')
 # environment = gym.make('CartPole-v0')
-environment = gym.make('Pendulum-v0')
+environment = gym.make('MsPacman-v0')
 continuous = isinstance(environment.observation_space, gym.spaces.Discrete)==False
 rng = np.random.RandomState(123456)
 
@@ -214,8 +219,9 @@ if VISUALIZE:
 
 images = True
 filter_buffer = False
+load_data = False
 EC = Episodic_Control(environment, epochs, rng, continuous, buffer_size,
-                ec_discount, min_epsilon, decay_rate,knn,images,filter_buffer)
+                ec_discount, min_epsilon, decay_rate,knn,images,filter_buffer,load_data)
 EC.train(VISUALIZE)
 
 # plot EC.total_reward for average reward over episodes
