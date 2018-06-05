@@ -35,6 +35,7 @@ class Episodic_Control():
         self.net = neural_net(self.state_dimension,self.action_size,1)
         self.loss = nn.MSELoss()
         self.optimizer = torch.optim.RMSprop(self.net.parameters(),lr = self.lr)
+        self.counter = {}
 
     def knn_func(self,new):
         if len(self.qec_table)==0:
@@ -65,8 +66,10 @@ class Episodic_Control():
         if new in self.qec_table.keys():
             if R>self.qec_table[new]:
                 self.qec_table[new] = R
+                self.counter[new] += 1
         elif len(self.qec_table)<10:
             self.qec_table[new] = R
+            self.counter[new] = 1
         else:
             states,actions = zip(*[key for key,item in self.qec_table.items()])
             goals = [item for key, item in self.qec_table.items()]
@@ -78,12 +81,19 @@ class Episodic_Control():
                 # if R + c < goals[idxs].all():
                     # self.qec_table[]
                 self.qec_table[new] = R
+                self.counter[new] = 1
             for idx in idxs:
                 if goals[idx] + const < med_arr:
                     # import pdb; pdb.set_trace()
                     self.qec_table.pop((states[idx],actions[idx]))
+                    self.counter.pop((states[idx],actions[idx]))
                     # import pdb; pdb.set_trace()
-
+            if len(self.qec_table)>self.buffer_size:
+                if len(set(self.counter.keys()))==1:
+                    id = np.random.randint(0,len(self.qec_table))
+                    del self.qec_table[(states[id],actions[id])]
+                else:
+                    del self.qec_table[min(self.counter, key=d.get)]
             # elif R + c > goals[idxs].all():
 
     def filter_ds(self):
