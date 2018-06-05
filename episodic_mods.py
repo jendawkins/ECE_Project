@@ -72,7 +72,6 @@ class Episodic_Control():
             goals = [item for key, item in self.qec_table.items()]
             delta = np.std(np.array(states),axis = 0)
             delt = np.sqrt(delta[0]**2 + delta[1]**2)
-            const = 1
             idxs = np.where(cdist(np.array(states),np.array([new[0]]))<delt)[0]
             if new[1] not in np.array(actions)[idxs] or (R + const > np.array(goals)[idxs]).all():
                 # if R + c < goals[idxs].all():
@@ -109,12 +108,10 @@ class Episodic_Control():
             episodes_per_epoch = 0
             reward_per_epoch = 0
             while epoch_steps < 10000:
-                if i < 5:
-                    self.env.reset()
-                    state = self.env.observation_space.sample()
-                    self.env.env.state = state
-                else:
-                    state = self.env.reset()
+                self.env.reset()
+                state = self.env.observation_space.sample()
+                self.env.env.state = state
+
                 done = False
                 epsilon = self.min_epsilon + (1.0 - self.min_epsilon)*np.exp(-self.decay_rate*i)
                 steps = 0.
@@ -177,18 +174,10 @@ class Episodic_Control():
                 if len(self.qec_table)==1:
                     self.net.eval()
                 action_tensor = torch.Tensor(np.array(action_tensor)).unsqueeze(1)
-                pred = self.net(state_tensor, action_tensor)
-                # for k in range(va.size(0)):
-                #     def closure():
-                #         self.optimizer.zero_grad()
-                #         output = self.net(state_tensor[k,:].unsqueeze(0),action_tensor[k,:].unsqueeze(0))
-                #         loss = self.loss(output, va[k,:].unsqueeze(0))
-                #         loss.backward()
-                #         return loss
-                #     self.optimizer.step(closure)
+                preds = self.net(state_tensor, action_tensor)
 
                 self.optimizer.zero_grad()
-                loss = self.loss(pred,va)
+                loss = self.loss(preds,va)
                 loss.backward()
                 self.optimizer.step()
 
@@ -200,13 +189,13 @@ class Episodic_Control():
             # print(self.qec_table)
 
 buffer_size = 100000
-ec_discount = .9
-min_epsilon = 0.01
+ec_discount = .8
+min_epsilon = 0.05
 decay_rate = 1
 epochs = 5000
 knn = 11
 filter = True
-learning_rate = .01
+learning_rate = .1
 rng = np.random.RandomState(123456)
 environment = gym.make('MountainCar-v0')
 # from gym.envs.registration import register
