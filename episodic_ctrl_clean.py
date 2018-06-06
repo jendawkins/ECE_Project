@@ -9,8 +9,9 @@ import heapq
 import scipy
 from sklearn.neighbors import BallTree,KDTree
 from scipy.spatial.distance import cdist
-import cv2
 import operator
+import os
+import time
 
 class Episodic_Control():
     def __init__(self, environment, epochs, rng, continuous, buffer_size,
@@ -52,6 +53,7 @@ class Episodic_Control():
             return 0.0
         if new in self.qec_table.keys():
             return self.qec_table[new]
+
         states,actions = zip(*[key for key,item in self.qec_table.items() if key[1]==new[1]])
         if len(states) < self.knn:
             k = len(states)
@@ -72,6 +74,9 @@ class Episodic_Control():
         return value / knn
 
     def update_table(self,R,new,const):
+        if len(self.qec_table)>1:
+            states,actions = zip(*[key for key,item in self.qec_table.items()])
+            goals = [item for key, item in self.qec_table.items()]
         if new in self.qec_table.keys():
             if R>self.qec_table[new]:
                 self.qec_table[new] = R
@@ -81,8 +86,6 @@ class Episodic_Control():
             self.qec_table[new] = R
             self.counter[new] = 1
         else:
-            states,actions = zip(*[key for key,item in self.qec_table.items()])
-            goals = [item for key, item in self.qec_table.items()]
             delta = np.std(np.array(states),axis = 0)
             delt = np.sqrt(delta[0]**2 + delta[1]**2)
             idxs = np.where(cdist(np.array(states),np.array([new[0]]))<delt)[0]
@@ -98,17 +101,21 @@ class Episodic_Control():
                     self.qec_table.pop((states[idx],actions[idx]))
                     self.counter.pop((states[idx],actions[idx]))
         if len(self.qec_table)>self.buffer_size:
-            num_big = abs(self.buffer_size-len(self.qec_table))
-            sorted_x = sorted(self.counter.items(), key=operator.itemgetter(1))
-            if len(set(self.counter.keys()))==1:
-                id = np.random.choice(range(len(self.qec_table)),num_big)
-                for idd in id:
-                    del self.qec_table[(states[idd],actions[idd])]
-                    del self.counter[(states[idd],actions[idd])]
+            # import pdb; pdb.set_trace()
+            # num_big = abs(self.buffer_size-len(self.qec_table))
+            # print(num_big)
+            if len(set(self.counter.values()))==1:
+                id = np.random.randint(len(self.qec_table)-1)
+                # for idd in id:
+                del self.qec_table[(states[id],actions[id])]
+                del self.counter[(states[id],actions[id])]
             else:
-                for keyy in sorted_x[:num_big]:
-                    del self.qec_table[keyy[0]]
-                    del self.counter[keyy[0]]
+                # import pdb; pdb.set_trace()
+                min_val = min(self.counter, key=self.counter.get)
+                # sorted_x = sorted(self.counter.items(), key=operator.itemgetter(1))
+                # for keyy in sorted_x[:num_big]:
+                del self.qec_table[self.counter[min_val]]
+                del self.counter[self.counter[min_val]]
 
 
     def _initialize_projection_function(self, dimension_observation):
@@ -129,13 +136,17 @@ class Episodic_Control():
             episodes_per_epoch = 0
             reward_per_epoch = 0
             while epoch_steps < 10000:
-                # state = self.env.reset()
-                self.env.reset()
-                state = self.env.observation_space.sample()
-                self.env.env.state = state
+                state = self.env.reset()
+                # if i < 30:
+                #     self.env.reset()
+                #     state = self.env.observation_space.sample()
+                #     self.env.env.state = state
+                # else:
+                    # state = self.env.reset()
                     # state = np.reshape(state,(len(state),1))
                 done = False
                 epsilon = self.min_epsilon + (1.0 - self.min_epsilon)*np.exp(-self.decay_rate*i)
+                const = self.min_epsilon + (1.0 - self.min_epsilon)*np.exp(-self.decay_rate*i)
                 steps = 0.
                 ep_reward = 0.
                 trace_list = []
@@ -197,36 +208,37 @@ class Episodic_Control():
             # with open('pacman.pkl','w') as pp:
                 # pp.dump()
 
-buffer_size = 100000
+buffer_size = 10000
 ec_discount = .99
 min_epsilon = 0.01
-decay_rate = 1000
+decay_rate = 1
 epochs = 5000
 # continuous = False
 knn = 11
-# environment = gym.make('MountainCar-v0')
-from gym.envs.registration import register
-register(
-    id='FrozenLakeNotSlippery-v0',
-    entry_point='gym.envs.toy_text:FrozenLakeEnv',
-    kwargs={'map_name' : '4x4', 'is_slippery': False},
-    max_episode_steps=100,
-    reward_threshold=0.78, # optimum = .8196
-)
+# environment = gym.make('LunarLander-v2')
+# from gym.envs.registration import register
+# register(
+#     id='FrozenLakeNotSlippery-v0',
+#     entry_point='gym.envs.toy_text:FrozenLakeEnv',
+#     kwargs={'map_name' : '4x4', 'is_slippery': False},
+#     max_episode_steps=100,
+#     reward_threshold=0.78, # optimum = .8196
+# )
 # environment = gym.make('FrozenLakeNotSlippery-v0')
 # environment = gym.make('CartPole-v0')
-environment = gym.make('MsPacman-v0')
+environment = gym.make('Acrobot-v1')
 continuous = isinstance(environment.observation_space, gym.spaces.Discrete)==False
 rng = np.random.RandomState(123456)
 
 VISUALIZE = False
-save_name = 'pacman3'
+# save_name = 'FLake'
+save_name = 'test2'
 if VISUALIZE:
     if not os.path.exists(logdir):
         os.mkdir(logdir)
     environment = gym.wrappers.Monitor(environment, logdir, force=True, video_callable=lambda episode_id: episode_id%logging_interval==0)
 
-images = True
+images = False
 filter_buffer = False
 load_data = False
 EC = Episodic_Control(environment, epochs, rng, continuous, buffer_size,

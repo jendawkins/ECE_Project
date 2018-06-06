@@ -1,6 +1,6 @@
 import gym
 import numpy as np
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 # __author__ = 'sudeep raja'
 import numpy as np
 # import _pickle as cPickle
@@ -13,7 +13,8 @@ from scipy.spatial.distance import cdist
 import operator
 
 class Episodic_Control():
-    def __init__(self, environment, epochs, rng, continuous, buffer_size, ec_discount, min_epsilon, decay_rate,knn,lrr,filter):
+    def __init__(self, environment, epochs, rng, continuous, buffer_size, ec_discount, min_epsilon, decay_rate,knn,lrr,filter,save_name):
+        self.save_name = save_name
         self.lr = lrr
         self.env = environment
         self.rng = rng
@@ -26,6 +27,7 @@ class Episodic_Control():
         self.filt_qec_table = {}
         self.action_size = self.env.action_space.n
         self.epochs = epochs
+        self.filter = filter
         # state_size = env.observation_space.shape[0]
         if continuous:
             self.state_dimension = self.env.observation_space.shape[0]
@@ -68,24 +70,26 @@ class Episodic_Control():
             if R>self.qec_table[new]:
                 self.qec_table[new] = R
                 self.counter[new] += 1
-        elif len(self.qec_table)<10:
+        elif len(self.qec_table)<10 or not self.filter:
             self.qec_table[new] = R
             self.counter[new] = 1
         else:
-            states,actions = zip(*[key for key,item in self.qec_table.items()])
-            goals = [item for key, item in self.qec_table.items()]
+            sa, goals = zip(*self.qec_table.items())
+            states, actions = zip(*sa)
+            # states,actions = zip(*[key for key,item in self.qec_table.items()])
+            # goals = [item for key, item in self.qec_table.items()]
             delta = np.std(np.array(states),axis = 0)
-            delt = np.sqrt(delta[0]**2 + delta[1]**2)
+            delt = np.sqrt(np.sum(np.power(delta,2)))
             idxs = np.where(cdist(np.array(states),np.array([new[0]]))<delt)[0]
+            idxs2 = [idx for idx in idxs if np.array(actions)[idx] == new[1]]
             med_arr = np.median(np.array(goals)[idxs])
             if new[1] not in np.array(actions)[idxs] or R + const > med_arr:
                 # if R + c < goals[idxs].all():
                     # self.qec_table[]
                 self.qec_table[new] = R
                 self.counter[new] = 1
-            for idx in idxs:
+            for idx in idxs2:
                 if goals[idx] + const < med_arr:
-                    # import pdb; pdb.set_trace()
                     self.qec_table.pop((states[idx],actions[idx]))
                     self.counter.pop((states[idx],actions[idx]))
                     # import pdb; pdb.set_trace()
@@ -118,9 +122,12 @@ class Episodic_Control():
                 if animate_this_episode:
                     self.env.render()
                     time.sleep(0.05)
+                # if i < 4:
                 self.env.reset()
                 state = self.env.observation_space.sample()
                 self.env.env.state = state
+                # else:
+                    # state = self.env.reset()
 
                 done = False
                 epsilon = self.min_epsilon + (1.0 - self.min_epsilon)*np.exp(-self.decay_rate*i)
@@ -196,49 +203,42 @@ class Episodic_Control():
             print('Average Epoch ' + str(i) + ' Reward: ' + str(self.total_reward[-1]))
             print('Total Reward: ' + str(self.total_sum_reward))
             print(len(self.qec_table))
-            with open('MtCar_Net_Filter.csv','a') as f:
-                f.write(str(self.total_reward[-1]))
+            with open(self.save_name + '.csv','a') as f:
+                f.write(str(self.total_reward[-1]) + ', ')
 
-            with open('MtCar_Net_Filter2.csv','a') as f:
-                f.write(str(self.reward_per_ep[-episodes_per_epoch:]))
-            pickl_file = open('MtCar_Net_Filter.pkl','wb')
+            with open(self.save_name + '2.csv','a') as f:
+                f.write(str(self.reward_per_ep[-episodes_per_epoch:]) + ', ')
+            pickl_file = open(self.save_name + '.pkl','wb')
             pickle.dump(self.qec_table,pickl_file)
             pickl_file.close()
+            torch.save(self.net, self.save_name + '.pt')
             # print(len(self.qec_table))
             # print(self.qec_table)
 
-buffer_size = 100000
+buffer_size = 10000
 ec_discount = .9
 min_epsilon = 0.05
 decay_rate = 1
-epochs = 5000
+epochs = 60
 knn = 11
-filter = True
-learning_rate = .01
+filter = False
+learning_rate = .1
 rng = np.random.RandomState(123456)
 environment = gym.make('MountainCar-v0')
 VISUALIZE = False
+save_name = 'MtModOnlyACTUAL'
 
 if VISUALIZE:
     if not os.path.exists(logdir):
         os.mkdir(logdir)
     environment = gym.wrappers.Monitor(environment, logdir, force=True, video_callable=lambda episode_id: episode_id%logging_interval==0)
 
-# from gym.envs.registration import register
-# register(
-#     id='FrozenLakeNotSlippery-v0',
-#     entry_point='gym.envs.toy_text:FrozenLakeEnv',
-#     kwargs={'map_name' : '4x4', 'is_slippery': False},
-#     max_episode_steps=100,
-#     reward_threshold=0.78, # optimum = .8196
-# )
-# environment = gym.make('FrozenLakeNotSlippery-v0')
 rng = np.random.RandomState(123456)
 continuous = isinstance(environment.observation_space, gym.spaces.Discrete)==False
 # net = neural_net()
 #(self, net, environment, rng, continuous, buffer_size, ec_discount, min_epsilon, decay_rate,knn)
 EC = Episodic_Control(environment, epochs, rng, continuous, buffer_size, ec_discount, min_epsilon,
-                decay_rate,knn,learning_rate, filter)
+                decay_rate,knn,learning_rate, filter,save_name)
 EC.train_net(VISUALIZE)
 
 # plot EC.total_reward for average reward over episodes
