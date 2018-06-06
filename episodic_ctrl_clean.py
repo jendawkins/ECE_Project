@@ -49,8 +49,8 @@ class Episodic_Control():
         if new in self.qec_table.keys():
             return self.qec_table[new]
         states,actions = zip(*[key for key,item in self.qec_table.items() if key[1]==new[1]])
-        if len(self.qec_table) < self.knn:
-            k = len(self.qec_table)
+        if len(states) < self.knn:
+            k = len(states)
         else:
             k = self.knn
         if np.isscalar(states[0]):
@@ -171,18 +171,18 @@ class Episodic_Control():
                 for j in range(len(trace_list)-1, -1, -1):
                     node = trace_list[j]
                     q_return = q_return * self.ec_discount + node[2]
-                    self.update_table(q_return,(node[0],node[1]),epsilon)
+                    self.update_table(q_return,(node[0],node[1]),0)
             self.total_reward.append(reward_per_epoch/episodes_per_epoch)
             self.total_sum_reward += reward_per_epoch
             # print('Average Reward: '+ str(sum(ep_avg_reward)/len(ep_avg_reward)))
             print('Average Epoch ' + str(i) + ' Reward: ' + str(self.total_reward[-1]))
             print('Total Reward: ' + str(self.total_sum_reward))
-            with open('log_pacman.csv','a') as f:
+            with open('mtcar.csv','a') as f:
                 f.write(str(self.total_reward[-1]))
-            with open('log_pacman2.csv','a') as f:
+            with open('mtcar2.csv','a') as f:
                 f.write(str(self.reward_per_ep[-episodes_per_epoch:]))
             if not VISUALIZE:
-                pickl_file = open('pacman2.pkl','wb')
+                pickl_file = open('mtcar2.pkl','wb')
                 pickle.dump(self.qec_table,pickl_file)
                 pickl_file.close()
             # with open('pacman.pkl','w') as pp:
@@ -206,7 +206,7 @@ register(
 )
 # environment = gym.make('FrozenLakeNotSlippery-v0')
 # environment = gym.make('CartPole-v0')
-environment = gym.make('MsPacman-v0')
+environment = gym.make('MountainCar-v0')
 continuous = isinstance(environment.observation_space, gym.spaces.Discrete)==False
 rng = np.random.RandomState(123456)
 
@@ -217,8 +217,8 @@ if VISUALIZE:
         os.mkdir(logdir)
     environment = gym.wrappers.Monitor(environment, logdir, force=True, video_callable=lambda episode_id: episode_id%logging_interval==0)
 
-images = True
-filter_buffer = False
+images = False
+filter_buffer = True
 load_data = False
 EC = Episodic_Control(environment, epochs, rng, continuous, buffer_size,
                 ec_discount, min_epsilon, decay_rate,knn,images,filter_buffer,load_data)

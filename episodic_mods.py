@@ -34,7 +34,7 @@ class Episodic_Control():
             self.state_size = self.env.observation_space.n
         self.net = neural_net(self.state_dimension,self.action_size,1)
         self.loss = nn.MSELoss()
-        self.optimizer = torch.optim.RMSprop(self.net.parameters(),lr = self.lr)
+        self.optimizer = torch.optim.Adam(self.net.parameters(),lr = self.lr)
         self.counter = {}
 
     def knn_func(self,new):
@@ -97,26 +97,6 @@ class Episodic_Control():
                 del self.qec_table[min(self.counter, key=self.counter.get)]
                 del self.counter[min(self.counter, key=self.counter.get)]
             # elif R + c > goals[idxs].all():
-
-    def filter_ds(self):
-        states,actions = zip(*[key for key,item in self.qec_table.items()])
-        g = [item for key,item in self.qec_table.items()]
-        if len(self.filt_qec_table.items())==0:
-            self.filt_qec_table = self.qec_table
-        states_j, actions_j = zip(*[key for key,item in self.filt_qec_table.items()])
-        g_j = [item for key,item in self.filt_qec_table.items()]
-        delta = 1
-        c = 1 #change this to decrease in size with number of epochs
-        for i in range(len(states)):
-            for j in range(len(states_j)):
-                if actions[i] == actions_j[j] and abs(np.array(states[i])-np.array(states_j[j])).any() < delta:
-                    if g[i] + c < g_j[j]:
-                        new = (states[i], actions[i])
-                        self.filt_qec_table[new] = g[i]
-                if g_j[j] < np.median(g_j): #medium
-                    old = (states_j[j], actions_j[j])
-                    self.filt_qec_table.pop(old, None)
-
 
     def train_net(self,VISUALIZE):
         ep_avg_reward = []
@@ -186,7 +166,7 @@ class Episodic_Control():
                     node = trace_list[j]
                     q_return = q_return * self.ec_discount + node[2]
 
-                    self.update_table(q_return,(node[0],node[1]),const)
+                    self.update_table(q_return,(node[0],node[1]),0)
 
                 # train network on updated table
                 s_a, va = zip(*[(key,item) for key,item in self.qec_table.items()])
@@ -209,25 +189,26 @@ class Episodic_Control():
             self.total_sum_reward += reward_per_epoch
             print('Average Epoch ' + str(i) + ' Reward: ' + str(self.total_reward[-1]))
             print('Total Reward: ' + str(self.total_sum_reward))
+            print(len(self.qec_table))
             with open('MtCar_Net_Filter.csv','a') as f:
                 f.write(str(self.total_reward[-1]))
 
             with open('MtCar_Net_Filter2.csv','a') as f:
-                f.write(str(self.reward_per_ep[-eisodes_per_epoch:]))
+                f.write(str(self.reward_per_ep[-episodes_per_epoch:]))
             pickl_file = open('MtCar_Net_Filter.pkl','wb')
             pickle.dump(self.qec_table,pickl_file)
             pickl_file.close()
             # print(len(self.qec_table))
             # print(self.qec_table)
 
-buffer_size = 100000
+buffer_size = 1000
 ec_discount = .9
 min_epsilon = 0.05
 decay_rate = 1
 epochs = 5000
 knn = 11
 filter = True
-learning_rate = .1
+learning_rate = .01
 rng = np.random.RandomState(123456)
 environment = gym.make('MountainCar-v0')
 VISUALIZE = False
