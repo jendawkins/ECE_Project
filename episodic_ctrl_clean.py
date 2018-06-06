@@ -10,9 +10,13 @@ import scipy
 from sklearn.neighbors import BallTree,KDTree
 from scipy.spatial.distance import cdist
 import cv2
+import operator
 
 class Episodic_Control():
-    def __init__(self, environment, epochs, rng, continuous, buffer_size, ec_discount, min_epsilon, decay_rate,knn,images,filter_buffer,load_data):
+    def __init__(self, environment, epochs, rng, continuous, buffer_size,
+                    ec_discount, min_epsilon, decay_rate,knn,images,
+                        filter_buffer,load_data,save_name):
+        self.save_name = save_name
         self.filter = filter_buffer
         self.counter = {}
         self.images = images
@@ -94,13 +98,17 @@ class Episodic_Control():
                     self.qec_table.pop((states[idx],actions[idx]))
                     self.counter.pop((states[idx],actions[idx]))
         if len(self.qec_table)>self.buffer_size:
+            num_big = abs(self.buffer_size-len(self.qec_table))
+            sorted_x = sorted(self.counter.items(), key=operator.itemgetter(1))
             if len(set(self.counter.keys()))==1:
-                id = np.random.randint(0,len(self.qec_table))
-                del self.qec_table[(states[id],actions[id])]
-                del self.counter[(states[id],actions[id])]
+                id = np.random.choice(range(len(self.qec_table)),num_big)
+                for idd in id:
+                    del self.qec_table[(states[idd],actions[idd])]
+                    del self.counter[(states[idd],actions[idd])]
             else:
-                del self.qec_table[min(self.counter, key=self.counter.get)]
-                del self.counter[min(self.counter, key=self.counter.get)]
+                for keyy in sorted_x[:num_big]:
+                    del self.qec_table[keyy[0]]
+                    del self.counter[keyy[0]]
 
 
     def _initialize_projection_function(self, dimension_observation):
@@ -177,12 +185,13 @@ class Episodic_Control():
             # print('Average Reward: '+ str(sum(ep_avg_reward)/len(ep_avg_reward)))
             print('Average Epoch ' + str(i) + ' Reward: ' + str(self.total_reward[-1]))
             print('Total Reward: ' + str(self.total_sum_reward))
-            with open('mtcar.csv','a') as f:
+            print(len(self.qec_table))
+            with open(save_name + '.csv','a') as f:
                 f.write(str(self.total_reward[-1]))
-            with open('mtcar2.csv','a') as f:
+            with open(save_name + '2.csv','a') as f:
                 f.write(str(self.reward_per_ep[-episodes_per_epoch:]))
             if not VISUALIZE:
-                pickl_file = open('mtcar2.pkl','wb')
+                pickl_file = open(save_name +'.pkl','wb')
                 pickle.dump(self.qec_table,pickl_file)
                 pickl_file.close()
             # with open('pacman.pkl','w') as pp:
@@ -206,22 +215,22 @@ register(
 )
 # environment = gym.make('FrozenLakeNotSlippery-v0')
 # environment = gym.make('CartPole-v0')
-environment = gym.make('MountainCar-v0')
+environment = gym.make('MsPacman-v0')
 continuous = isinstance(environment.observation_space, gym.spaces.Discrete)==False
 rng = np.random.RandomState(123456)
 
 VISUALIZE = False
-
+save_name = 'pacman3'
 if VISUALIZE:
     if not os.path.exists(logdir):
         os.mkdir(logdir)
     environment = gym.wrappers.Monitor(environment, logdir, force=True, video_callable=lambda episode_id: episode_id%logging_interval==0)
 
-images = False
-filter_buffer = True
+images = True
+filter_buffer = False
 load_data = False
 EC = Episodic_Control(environment, epochs, rng, continuous, buffer_size,
-                ec_discount, min_epsilon, decay_rate,knn,images,filter_buffer,load_data)
+                ec_discount, min_epsilon, decay_rate,knn,images,filter_buffer,load_data,save_name)
 EC.train(VISUALIZE)
 
 # plot EC.total_reward for average reward over episodes

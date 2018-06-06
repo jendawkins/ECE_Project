@@ -10,6 +10,7 @@ from sklearn.neighbors import BallTree,KDTree
 from neural_net import *
 import time
 from scipy.spatial.distance import cdist
+import operator
 
 class Episodic_Control():
     def __init__(self, environment, epochs, rng, continuous, buffer_size, ec_discount, min_epsilon, decay_rate,knn,lrr,filter):
@@ -89,13 +90,18 @@ class Episodic_Control():
                     self.counter.pop((states[idx],actions[idx]))
                     # import pdb; pdb.set_trace()
         if len(self.qec_table)>self.buffer_size:
+            num_big = abs(self.buffer_size-len(self.qec_table))
+            sorted_x = sorted(self.counter.items(), key=operator.itemgetter(1))
             if len(set(self.counter.keys()))==1:
-                id = np.random.randint(0,len(self.qec_table))
-                del self.qec_table[(states[id],actions[id])]
-                del self.counter[(states[id],actions[id])]
+                id = np.random.choice(range(len(self.qec_table)),num_big)
+                for idd in id:
+                    del self.qec_table[(states[idd],actions[idd])]
+                    del self.counter[(states[idd],actions[idd])]
             else:
-                del self.qec_table[min(self.counter, key=self.counter.get)]
-                del self.counter[min(self.counter, key=self.counter.get)]
+                for keyy in sorted_x[:num_big]:
+                    del self.qec_table[keyy[0]]
+                    del self.counter[keyy[0]]
+
             # elif R + c > goals[idxs].all():
 
     def train_net(self,VISUALIZE):
@@ -201,7 +207,7 @@ class Episodic_Control():
             # print(len(self.qec_table))
             # print(self.qec_table)
 
-buffer_size = 1000
+buffer_size = 100000
 ec_discount = .9
 min_epsilon = 0.05
 decay_rate = 1
