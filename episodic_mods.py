@@ -1,6 +1,6 @@
 import gym
 import numpy as np
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 # __author__ = 'sudeep raja'
 import numpy as np
 # import _pickle as cPickle
@@ -118,9 +118,10 @@ class Episodic_Control():
                 if animate_this_episode:
                     self.env.render()
                     time.sleep(0.05)
-                self.env.reset()
-                state = self.env.observation_space.sample()
-                self.env.env.state = state
+                state = self.env.reset()
+                #self.env.reset()
+                #state = self.env.observation_space.sample()
+                #self.env.env.state = state
 
                 done = False
                 epsilon = self.min_epsilon + (1.0 - self.min_epsilon)*np.exp(-self.decay_rate*i)
@@ -196,18 +197,18 @@ class Episodic_Control():
             print('Average Epoch ' + str(i) + ' Reward: ' + str(self.total_reward[-1]))
             print('Total Reward: ' + str(self.total_sum_reward))
             print(len(self.qec_table))
-            with open('MtCar_Net_Filter.csv','a') as f:
-                f.write(str(self.total_reward[-1]))
+            with open('LunarLander_nn_fil.csv','a') as f:
+                f.write(str(self.total_reward[-1])+',')
 
-            with open('MtCar_Net_Filter2.csv','a') as f:
-                f.write(str(self.reward_per_ep[-episodes_per_epoch:]))
-            pickl_file = open('MtCar_Net_Filter.pkl','wb')
+            with open('LunarLander_nn_fil2.csv','a') as f:
+                f.write(str(self.reward_per_ep[-episodes_per_epoch:])+',')
+            pickl_file = open('LunarLander_nn_fil.pkl','wb')
             pickle.dump(self.qec_table,pickl_file)
             pickl_file.close()
             # print(len(self.qec_table))
             # print(self.qec_table)
 
-buffer_size = 100000
+buffer_size = 1000
 ec_discount = .9
 min_epsilon = 0.05
 decay_rate = 1
@@ -216,7 +217,7 @@ knn = 11
 filter = True
 learning_rate = .01
 rng = np.random.RandomState(123456)
-environment = gym.make('MountainCar-v0')
+environment = gym.make('LunarLander-v2')
 VISUALIZE = False
 
 if VISUALIZE:

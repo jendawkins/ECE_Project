@@ -1,6 +1,6 @@
 import gym
 import numpy as np
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 # __author__ = 'sudeep raja'
 import numpy as np
 # import _pickle as cPickle
@@ -9,7 +9,6 @@ import heapq
 import scipy
 from sklearn.neighbors import BallTree,KDTree
 from scipy.spatial.distance import cdist
-import cv2
 import operator
 
 class Episodic_Control():
@@ -129,10 +128,10 @@ class Episodic_Control():
             episodes_per_epoch = 0
             reward_per_epoch = 0
             while epoch_steps < 10000:
-                # state = self.env.reset()
-                self.env.reset()
-                state = self.env.observation_space.sample()
-                self.env.env.state = state
+                state = self.env.reset()
+                #self.env.reset()
+                #state = self.env.observation_space.sample()
+                #self.env.env.state = state
                     # state = np.reshape(state,(len(state),1))
                 done = False
                 epsilon = self.min_epsilon + (1.0 - self.min_epsilon)*np.exp(-self.decay_rate*i)
@@ -197,7 +196,7 @@ class Episodic_Control():
             # with open('pacman.pkl','w') as pp:
                 # pp.dump()
 
-buffer_size = 100000
+buffer_size = 10000
 ec_discount = .99
 min_epsilon = 0.01
 decay_rate = 1000
@@ -214,20 +213,20 @@ register(
     reward_threshold=0.78, # optimum = .8196
 )
 # environment = gym.make('FrozenLakeNotSlippery-v0')
-# environment = gym.make('CartPole-v0')
-environment = gym.make('MsPacman-v0')
+#environment = gym.make('CartPole-v0')
+environment = gym.make('LunarLander-v2')
 continuous = isinstance(environment.observation_space, gym.spaces.Discrete)==False
 rng = np.random.RandomState(123456)
 
 VISUALIZE = False
-save_name = 'pacman3'
+save_name = 'lunarland_filter'
 if VISUALIZE:
     if not os.path.exists(logdir):
         os.mkdir(logdir)
     environment = gym.wrappers.Monitor(environment, logdir, force=True, video_callable=lambda episode_id: episode_id%logging_interval==0)
 
-images = True
-filter_buffer = False
+images = False
+filter_buffer = True
 load_data = False
 EC = Episodic_Control(environment, epochs, rng, continuous, buffer_size,
                 ec_discount, min_epsilon, decay_rate,knn,images,filter_buffer,load_data,save_name)
