@@ -9,24 +9,26 @@ import heapq
 from sklearn.neighbors import BallTree,KDTree
 from neural_net import *
 import time
+import scipy
 from scipy.spatial.distance import cdist
 import operator
 from neural_net import *
 
 use_net = False
-env = gym.make('MountainCar-v0')
+rng = np.random.RandomState(123456)
+env = gym.make('MsPacman-v0')
 if use_net:
     nnet = neural_net(env.observation_space.shape[0],env.action_space.n,1)
     nnet = torch.load('model.pt')
 else:
-    file_table = open('MtCar_Net_Filter.pkl','rb')
+    file_table = open('pacman3.pkl','rb')
     qec_table = pickle.load(file_table)
     file_table.close()
 
 
 VISUALIZE = True
-logdir = 'MtCar5/'
-
+logdir = 'pacman3/'
+images=True
 if VISUALIZE:
     if not os.path.exists(logdir):
         os.mkdir(logdir)
@@ -66,6 +68,11 @@ def predict_table(new,table,knn=11):
         value += table[(states[index],actions[index])]
     return value / knn
 
+def rgb2gray(rgb):
+    r, g, b = rgb[:,:,0], rgb[:,:,1], rgb[:,:,2]
+    gray = 0.2989 * r + 0.5870 * g + 0.1140 * b
+    return gray
+
 
 for episodes in range(20):
     if VISUALIZE:
@@ -82,6 +89,11 @@ for episodes in range(20):
     trace_list = []
     while not done:
         value_t = []
+        if images:
+            state = rgb2gray(state)
+            state = scipy.misc.imresize(state, size=(84,84))
+            matrix_projection = rng.randn(64,84*84).astype(np.float32)
+            state = np.dot(matrix_projection, state.flatten())
         if not np.isscalar(state):
             state_t = tuple(state)
         else:
