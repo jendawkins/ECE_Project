@@ -1,6 +1,6 @@
 import gym
 import numpy as np
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 # __author__ = 'sudeep raja'
 import numpy as np
 # import _pickle as cPickle
@@ -9,7 +9,6 @@ import heapq
 import scipy
 from sklearn.neighbors import BallTree,KDTree
 from scipy.spatial.distance import cdist
-import cv2
 import operator
 
 class Episodic_Control():
@@ -75,24 +74,38 @@ class Episodic_Control():
         if new in self.qec_table.keys():
             if R>self.qec_table[new]:
                 self.qec_table[new] = R
+                import pdb; pdb.set_trace()
         # else:
         #     self.qec_table[new] = R
         elif len(self.qec_table)<10 or not self.filter:
             self.qec_table[new] = R
             self.counter[new] = 1
         else:
-            states,actions = zip(*[key for key,item in self.qec_table.items()])
-            goals = [item for key, item in self.qec_table.items()]
+            sa, goals = zip(*self.qec_table.items())
+            states, actions = zip(*sa)
+            #states,actions = zip(*[key for key,item in self.qec_table.items()])
+            #goals = [item for key, item in self.qec_table.items()]
             delta = np.std(np.array(states),axis = 0)
-            delt = np.sqrt(delta[0]**2 + delta[1]**2)
-            idxs = np.where(cdist(np.array(states),np.array([new[0]]))<delt)[0]
-            med_arr = np.median(np.array(goals)[idxs])
-            if new[1] not in np.array(actions)[idxs] or R + const > med_arr:
-                # if R + c < goals[idxs].all():
-                    # self.qec_table[]
+            #delt = np.sqrt(delta[0]**2 + delta[1]**2)
+            delt = np.sqrt(np.sum(np.power(delta,2))) #distance
+            #compare with states that are around s_i
+            idxs = np.where(cdist(np.array(states),np.array([new[0]]))<delt)[0] #the distatnce is less that sd
+            #finds the indexes where the action is the same
+            idxs2 = [idx for idx in idxs if np.array(actions)[idx] == new[1]]
+            #median around the points with the same actions
+            med_arr = np.median(np.array(goals)[idxs2]) #changed!!
+            if new[1] no in np.array(actions)[idxs] and R + const > med_arr: #changed!
                 self.qec_table[new] = R
                 self.counter[new] = 1
-            for idx in idxs:
+            elif R + const > med_arr:
+                self.qec_table[new] = R
+                self.counter[new] = 1
+            #if new[1] not in np.array(actions)[idxs] or R + const > med_arr: #changed!
+                ## if R + c < goals[idxs].all():
+                    ## self.qec_table[]
+                #self.qec_table[new] = R
+                #self.counter[new] = 1
+            for idx in idxs2:
                 if goals[idx] + const < med_arr:
                     # import pdb; pdb.set_trace()
                     self.qec_table.pop((states[idx],actions[idx]))
@@ -100,7 +113,7 @@ class Episodic_Control():
         if len(self.qec_table)>self.buffer_size:
             num_big = abs(self.buffer_size-len(self.qec_table))
             sorted_x = sorted(self.counter.items(), key=operator.itemgetter(1))
-            if len(set(self.counter.keys()))==1:
+            if len(set(self.counter.values()))==1:
                 id = np.random.choice(range(len(self.qec_table)),num_big)
                 for idd in id:
                     del self.qec_table[(states[idd],actions[idd])]
