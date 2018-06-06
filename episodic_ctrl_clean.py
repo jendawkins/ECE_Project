@@ -53,8 +53,10 @@ class Episodic_Control():
             return 0.0
         if new in self.qec_table.keys():
             return self.qec_table[new]
-
-        states,actions = zip(*[key for key,item in self.qec_table.items() if key[1]==new[1]])
+        try:
+            states,actions = zip(*[key for key,item in self.qec_table.items() if key[1]==new[1]])
+        except:
+            return 0.0
         if len(states) < self.knn:
             k = len(states)
         else:
@@ -89,12 +91,20 @@ class Episodic_Control():
             delta = np.std(np.array(states),axis = 0)
             delt = np.sqrt(delta[0]**2 + delta[1]**2)
             idxs = np.where(cdist(np.array(states),np.array([new[0]]))<delt)[0]
-            med_arr = np.median(np.array(goals)[idxs])
-            if new[1] not in np.array(actions)[idxs] or R + const > med_arr:
-                # if R + c < goals[idxs].all():
-                    # self.qec_table[]
+            # med_arr = np.median(np.array(goals)[idxs])
+            idxs2 = [idx for idx in idxs if np.array(actions)[idx] == new[1]]
+            med_arr = np.median(np.array(goals)[idxs2]) #changed!!
+            if new[1] not in np.array(actions)[idxs] and R + const > med_arr: #changed!
                 self.qec_table[new] = R
                 self.counter[new] = 1
+            elif R + const > med_arr:
+                self.qec_table[new] = R
+                self.counter[new] = 1
+            # if new[1] not in np.array(actions)[idxs] or R + const > med_arr:
+            #     # if R + c < goals[idxs].all():
+            #         # self.qec_table[]
+            #     self.qec_table[new] = R
+            #     self.counter[new] = 1
             for idx in idxs:
                 if goals[idx] + const < med_arr:
                     # import pdb; pdb.set_trace()
@@ -167,7 +177,10 @@ class Episodic_Control():
                         maximum_action = self.rng.randint(0, self.action_size)
                     else:
                         for action in range(self.action_size):
-                            value_t.append(self.knn_func((state,action)))
+                            if len(self.qec_table)>1:
+                                value_t.append(self.knn_func((state,action)))
+                            else:
+                                break
                         if len(set(value_t))==1:
                             # print('values_equal')
                             maximum_action = self.rng.randint(0, self.action_size)
@@ -190,7 +203,7 @@ class Episodic_Control():
                 for j in range(len(trace_list)-1, -1, -1):
                     node = trace_list[j]
                     q_return = q_return * self.ec_discount + node[2]
-                    self.update_table(q_return,(node[0],node[1]),0)
+                    self.update_table(q_return,(node[0],node[1]),1)
             self.total_reward.append(reward_per_epoch/episodes_per_epoch)
             self.total_sum_reward += reward_per_epoch
             # print('Average Reward: '+ str(sum(ep_avg_reward)/len(ep_avg_reward)))
@@ -226,20 +239,20 @@ knn = 11
 # )
 # environment = gym.make('FrozenLakeNotSlippery-v0')
 # environment = gym.make('CartPole-v0')
-environment = gym.make('Acrobot-v1')
+environment = gym.make('LunarLander-v2')
 continuous = isinstance(environment.observation_space, gym.spaces.Discrete)==False
 rng = np.random.RandomState(123456)
 
 VISUALIZE = False
 # save_name = 'FLake'
-save_name = 'test2'
+save_name = 'LunarLanderFilterB'
 if VISUALIZE:
     if not os.path.exists(logdir):
         os.mkdir(logdir)
     environment = gym.wrappers.Monitor(environment, logdir, force=True, video_callable=lambda episode_id: episode_id%logging_interval==0)
 
 images = False
-filter_buffer = False
+filter_buffer = True
 load_data = False
 EC = Episodic_Control(environment, epochs, rng, continuous, buffer_size,
                 ec_discount, min_epsilon, decay_rate,knn,images,filter_buffer,load_data,save_name)

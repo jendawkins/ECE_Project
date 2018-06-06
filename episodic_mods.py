@@ -82,12 +82,19 @@ class Episodic_Control():
             delt = np.sqrt(np.sum(np.power(delta,2)))
             idxs = np.where(cdist(np.array(states),np.array([new[0]]))<delt)[0]
             idxs2 = [idx for idx in idxs if np.array(actions)[idx] == new[1]]
-            med_arr = np.median(np.array(goals)[idxs])
-            if new[1] not in np.array(actions)[idxs] or R + const > med_arr:
-                # if R + c < goals[idxs].all():
-                    # self.qec_table[]
+            # med_arr = np.median(np.array(goals)[idxs])
+            med_arr = np.median(np.array(goals)[idxs2]) #changed!!
+            if new[1] not in np.array(actions)[idxs] and R + const > med_arr: #changed!
                 self.qec_table[new] = R
                 self.counter[new] = 1
+            elif R + const > med_arr:
+                self.qec_table[new] = R
+                self.counter[new] = 1
+            # if new[1] not in np.array(actions)[idxs] or R + const > med_arr:
+            #     # if R + c < goals[idxs].all():
+            #         # self.qec_table[]
+            #     self.qec_table[new] = R
+            #     self.counter[new] = 1
             for idx in idxs2:
                 if goals[idx] + const < med_arr:
                     self.qec_table.pop((states[idx],actions[idx]))
@@ -96,7 +103,7 @@ class Episodic_Control():
         if len(self.qec_table)>self.buffer_size:
             num_big = abs(self.buffer_size-len(self.qec_table))
             sorted_x = sorted(self.counter.items(), key=operator.itemgetter(1))
-            if len(set(self.counter.keys()))==1:
+            if len(set(self.counter.values()))==1:
                 id = np.random.choice(range(len(self.qec_table)),num_big)
                 for idd in id:
                     del self.qec_table[(states[idd],actions[idd])]
@@ -123,11 +130,11 @@ class Episodic_Control():
                     self.env.render()
                     time.sleep(0.05)
                 # if i < 4:
-                self.env.reset()
-                state = self.env.observation_space.sample()
-                self.env.env.state = state
+                # self.env.reset()
+                # state = self.env.observation_space.sample()
+                # self.env.env.state = state
                 # else:
-                    # state = self.env.reset()
+                state = self.env.reset()
 
                 done = False
                 epsilon = self.min_epsilon + (1.0 - self.min_epsilon)*np.exp(-self.decay_rate*i)
@@ -151,6 +158,7 @@ class Episodic_Control():
                             a_in = torch.Tensor([[action]])
                             self.net.eval()
                             pred = self.net(s_in, a_in)
+
                             value_t.append(pred.detach().numpy()[0][0])
                         if len(set(value_t))==1:
                             maximum_action = self.rng.randint(0, self.action_size)
@@ -179,7 +187,7 @@ class Episodic_Control():
                     node = trace_list[j]
                     q_return = q_return * self.ec_discount + node[2]
 
-                    self.update_table(q_return,(node[0],node[1]),0)
+                    self.update_table(q_return,(node[0],node[1]),.5)
 
                 # train network on updated table
                 s_a, va = zip(*[(key,item) for key,item in self.qec_table.items()])
@@ -217,16 +225,16 @@ class Episodic_Control():
 
 buffer_size = 10000
 ec_discount = .9
-min_epsilon = 0.05
+min_epsilon = 0.01
 decay_rate = 1
 epochs = 60
 knn = 11
-filter = False
+filter = True
 learning_rate = .1
 rng = np.random.RandomState(123456)
-environment = gym.make('MountainCar-v0')
+environment = gym.make('LunarLander-v2')
 VISUALIZE = False
-save_name = 'MtModOnlyACTUAL'
+save_name = 'LunarLanderModelFilt'
 
 if VISUALIZE:
     if not os.path.exists(logdir):
