@@ -89,7 +89,7 @@ class Episodic_Control():
             self.counter[new] = 1
         else:
             delta = np.std(np.array(states),axis = 0)
-            delt = np.sqrt(delta[0]**2 + delta[1]**2)
+            delt =  np.sqrt(np.sum(np.power(delta,2)))/2
             idxs = np.where(cdist(np.array(states),np.array([new[0]]))<delt)[0]
             # med_arr = np.median(np.array(goals)[idxs])
             idxs2 = [idx for idx in idxs if np.array(actions)[idx] == new[1]]
@@ -203,7 +203,7 @@ class Episodic_Control():
                 for j in range(len(trace_list)-1, -1, -1):
                     node = trace_list[j]
                     q_return = q_return * self.ec_discount + node[2]
-                    self.update_table(q_return,(node[0],node[1]),1)
+                    self.update_table(q_return,(node[0],node[1]),.1)
             self.total_reward.append(reward_per_epoch/episodes_per_epoch)
             self.total_sum_reward += reward_per_epoch
             # print('Average Reward: '+ str(sum(ep_avg_reward)/len(ep_avg_reward)))
@@ -245,7 +245,7 @@ rng = np.random.RandomState(123456)
 
 VISUALIZE = False
 # save_name = 'FLake'
-save_name = 'LunarLanderFilterB'
+save_name = 'LunarLanderFilterC'
 if VISUALIZE:
     if not os.path.exists(logdir):
         os.mkdir(logdir)
