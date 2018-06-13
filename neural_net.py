@@ -16,9 +16,9 @@ class neural_net(nn.Module):
         self.l1 = nn.Linear(self.state_size, 300)
         self.bn1 = nn.BatchNorm1d(300)
         self.rel1 = nn.ReLU()
-        self.l2 = nn.Linear(300+1, 300)
+        self.l2 = nn.Linear(300+1, 600)
         self.rel2 = nn.ReLU()
-        self.l3 = nn.Linear(300, self.output_size)
+        self.l3 = nn.Linear(600, self.output_size)
         self.layers = nn.Sequential(
             self.l1,
             self.bn1,
@@ -46,5 +46,5 @@ class neural_net(nn.Module):
         # Xavier: mean = 0 and stdev = 1/sqrt(# inputs)
         for layer in self.layers:
             if isinstance(layer, nn.Linear):
-                nn.init.normal_(layer.weight)
-                nn.init.constant_(layer.bias,0.1)
+                nn.init.normal(layer.weight)
+                nn.init.constant(layer.bias,0.1)

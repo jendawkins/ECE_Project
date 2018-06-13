@@ -11,11 +11,11 @@ from neural_net import *
 import time
 from scipy.spatial.distance import cdist
 import operator
+#from sklearn.model_selection import GridSearchCV
 
 class Episodic_Control():
     def __init__(self, environment, epochs, rng, continuous, buffer_size, ec_discount, min_epsilon, decay_rate,knn,lrr,filter,save_name):
         self.save_name = save_name
-        self.lr = lrr
         self.env = environment
         self.rng = rng
         self.buffer_size = buffer_size
@@ -27,6 +27,8 @@ class Episodic_Control():
         self.filt_qec_table = {}
         self.action_size = self.env.action_space.n
         self.epochs = epochs
+        #self.lr = lrr
+        self.lr = lrr * (0.1 ** (self.epochs // 30))
         self.filter = filter
         # state_size = env.observation_space.shape[0]
         if continuous:
@@ -154,12 +156,12 @@ class Episodic_Control():
                         for action in range(self.action_size):
                             if np.isscalar(state):
                                 state = [state]
-                            s_in = torch.Tensor([state])
-                            a_in = torch.Tensor([[action]])
+                            s_in = Variable(torch.Tensor([state]))
+                            a_in = Variable(torch.Tensor([[action]]))
                             self.net.eval()
                             pred = self.net(s_in, a_in)
 
-                            value_t.append(pred.detach().numpy()[0][0])
+                            value_t.append(pred.data.numpy()[0][0])
                         if len(set(value_t))==1:
                             maximum_action = self.rng.randint(0, self.action_size)
                         else:
@@ -191,16 +193,15 @@ class Episodic_Control():
 
                 # train network on updated table
                 s_a, va = zip(*[(key,item) for key,item in self.qec_table.items()])
-                va = torch.Tensor(np.array(va)).unsqueeze(1)
+                va = Variable(torch.Tensor(np.array(va)).unsqueeze(1))
                 state_tensor, action_tensor = zip(*s_a)
-                state_tensor = torch.Tensor(np.array(state_tensor))
+                state_tensor = Variable(torch.Tensor(np.array(state_tensor)))
                 if len(state_tensor.size())==1:
                     state_tensor = state_tensor.unsqueeze(1)
                 if len(self.qec_table)==1:
                     self.net.eval()
-                action_tensor = torch.Tensor(np.array(action_tensor)).unsqueeze(1)
+                action_tensor = Variable(torch.Tensor(np.array(action_tensor)).unsqueeze(1))
                 preds = self.net(state_tensor, action_tensor)
-
                 self.optimizer.zero_grad()
                 loss = self.loss(preds,va)
                 loss.backward()
@@ -211,15 +212,15 @@ class Episodic_Control():
             print('Average Epoch ' + str(i) + ' Reward: ' + str(self.total_reward[-1]))
             print('Total Reward: ' + str(self.total_sum_reward))
             print(len(self.qec_table))
-            with open(self.save_name + '.csv','a') as f:
-                f.write(str(self.total_reward[-1]) + ', ')
+            #with open(self.save_name + '.csv','a') as f:
+                #f.write(str(self.total_reward[-1]) + ', ')
 
-            with open(self.save_name + '2.csv','a') as f:
-                f.write(str(self.reward_per_ep[-episodes_per_epoch:]) + ', ')
-            pickl_file = open(self.save_name + '.pkl','wb')
-            pickle.dump(self.qec_table,pickl_file)
-            pickl_file.close()
-            torch.save(self.net, self.save_name + '.pt')
+            #with open(self.save_name + '2.csv','a') as f:
+                #f.write(str(self.reward_per_ep[-episodes_per_epoch:]) + ', ')
+            #pickl_file = open(self.save_name + '.pkl','wb')
+            #pickle.dump(self.qec_table,pickl_file)
+            #pickl_file.close()
+            #torch.save(self.net, self.save_name + '.pt')
             # print(len(self.qec_table))
             # print(self.qec_table)
 
@@ -230,7 +231,7 @@ decay_rate = 1
 epochs = 60
 knn = 11
 filter = True
-learning_rate = .1
+learning_rate = 1e-2
 rng = np.random.RandomState(123456)
 environment = gym.make('LunarLander-v2')
 VISUALIZE = False
