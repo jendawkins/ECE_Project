@@ -70,7 +70,7 @@ class Episodic_Control():
             if R>self.qec_table[new]:
                 self.qec_table[new] = R
                 self.counter[new] += 1
-        elif len(self.qec_table)<10 or not self.filter:
+        elif len(self.qec_table)<  10000 or not self.filter:
             self.qec_table[new] = R
             self.counter[new] = 1
         else:
@@ -124,6 +124,7 @@ class Episodic_Control():
             epoch_steps = 0
             episodes_per_epoch = 0
             reward_per_epoch = 0
+            start = time.time()
             animate_this_episode = VISUALIZE and steps%10000==0
             while epoch_steps < 10000:
                 if animate_this_episode:
@@ -154,12 +155,12 @@ class Episodic_Control():
                         for action in range(self.action_size):
                             if np.isscalar(state):
                                 state = [state]
-                            s_in = torch.Tensor([state])
-                            a_in = torch.Tensor([[action]])
+                            s_in = Variable(torch.Tensor([state]))
+                            a_in = Variable(torch.Tensor([[action]]))
                             self.net.eval()
                             pred = self.net(s_in, a_in)
 
-                            value_t.append(pred.detach().numpy()[0][0])
+                            value_t.append(pred.data.numpy()[0][0])
                         if len(set(value_t))==1:
                             maximum_action = self.rng.randint(0, self.action_size)
                         else:
@@ -182,30 +183,34 @@ class Episodic_Control():
                 va = torch.Tensor(0,0)
                 self.net.train()
                 # update qec table
-                const = epsilon
+                if self.epochs<2:
+                    const = epsilon
+                else:
+                    const = 0
                 for j in range(len(trace_list)-1, -1, -1):
                     node = trace_list[j]
-                    q_return = q_return * self.ec_discount + node[2]
+                    q_return = q_return * self.ec_discount + node[2] #question???
 
-                    self.update_table(q_return,(node[0],node[1]),.5)
+                    self.update_table(q_return,(node[0],node[1]),const) ##was set at 0.5??
 
                 # train network on updated table
                 s_a, va = zip(*[(key,item) for key,item in self.qec_table.items()])
-                va = torch.Tensor(np.array(va)).unsqueeze(1)
+                va = Variable(torch.Tensor(np.array(va)).unsqueeze(1))
                 state_tensor, action_tensor = zip(*s_a)
-                state_tensor = torch.Tensor(np.array(state_tensor))
+                state_tensor = Variable(torch.Tensor(np.array(state_tensor)))
                 if len(state_tensor.size())==1:
                     state_tensor = state_tensor.unsqueeze(1)
                 if len(self.qec_table)==1:
                     self.net.eval()
-                action_tensor = torch.Tensor(np.array(action_tensor)).unsqueeze(1)
+                action_tensor = Variable(torch.Tensor(np.array(action_tensor)).unsqueeze(1))
                 preds = self.net(state_tensor, action_tensor)
 
                 self.optimizer.zero_grad()
                 loss = self.loss(preds,va)
                 loss.backward()
                 self.optimizer.step()
-
+            end = time.time()
+            print(end - start)
             self.total_reward.append(reward_per_epoch/episodes_per_epoch)
             self.total_sum_reward += reward_per_epoch
             print('Average Epoch ' + str(i) + ' Reward: ' + str(self.total_reward[-1]))
@@ -227,7 +232,7 @@ buffer_size = 10000
 ec_discount = .9
 min_epsilon = 0.01
 decay_rate = 1
-epochs = 60
+epochs = 400
 knn = 11
 filter = True
 learning_rate = .1
@@ -250,3 +255,7 @@ EC = Episodic_Control(environment, epochs, rng, continuous, buffer_size, ec_disc
 EC.train_net(VISUALIZE)
 
 # plot EC.total_reward for average reward over episodes
+
+#experiment 1: changing lr = 0.05, change const = 5, change len(R)>10000
+#experiment 2: change lr=0.1, get rid of batchnorm
+#experiment 3: change lr =0.001, batchnorm, cont =1
