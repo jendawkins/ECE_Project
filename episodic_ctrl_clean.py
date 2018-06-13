@@ -1,6 +1,6 @@
 import gym
 import numpy as np
-import matplotlib.pyplot as plt
+#mport matplotlib.pyplot as plt
 # __author__ = 'sudeep raja'
 import numpy as np
 # import _pickle as cPickle
@@ -145,6 +145,7 @@ class Episodic_Control():
             epoch_steps = 0
             episodes_per_epoch = 0
             reward_per_epoch = 0
+            start = time.time()
             while epoch_steps < 10000:
                 state = self.env.reset()
                 # if i < 30:
@@ -194,6 +195,8 @@ class Episodic_Control():
                     state = next_state
                     ep_reward += reward # total reward for this episode: 1 if convergence
                     steps += 1.0
+                end = time.time()
+                #print(end - start)
                 self.reward_per_ep.append(ep_reward)
                 reward_per_epoch += ep_reward
                 epoch_steps += steps
@@ -204,6 +207,8 @@ class Episodic_Control():
                     node = trace_list[j]
                     q_return = q_return * self.ec_discount + node[2]
                     self.update_table(q_return,(node[0],node[1]),.1)
+            end = time.time()
+            print(end - start)
             self.total_reward.append(reward_per_epoch/episodes_per_epoch)
             self.total_sum_reward += reward_per_epoch
             # print('Average Reward: '+ str(sum(ep_avg_reward)/len(ep_avg_reward)))
@@ -252,7 +257,7 @@ if VISUALIZE:
     environment = gym.wrappers.Monitor(environment, logdir, force=True, video_callable=lambda episode_id: episode_id%logging_interval==0)
 
 images = False
-filter_buffer = True
+filter_buffer = False
 load_data = False
 EC = Episodic_Control(environment, epochs, rng, continuous, buffer_size,
                 ec_discount, min_epsilon, decay_rate,knn,images,filter_buffer,load_data,save_name)
