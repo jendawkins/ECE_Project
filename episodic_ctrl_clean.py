@@ -76,56 +76,95 @@ class Episodic_Control():
         return value / knn
 
     def update_table(self,R,new,const):
-        if len(self.qec_table)>1:
-            states,actions = zip(*[key for key,item in self.qec_table.items()])
-            goals = [item for key, item in self.qec_table.items()]
         if new in self.qec_table.keys():
             if R>self.qec_table[new]:
                 self.qec_table[new] = R
-        # else:
-        #     self.qec_table[new] = R
-        elif len(self.qec_table)<10 or not self.filter:
+                self.counter[new] += 1
+        else:
             self.qec_table[new] = R
             self.counter[new] = 1
-        else:
+        if self.filter:
+            sa, goals = zip(*self.qec_table.items())
+            states, actions = zip(*sa)
+
             delta = np.std(np.array(states),axis = 0)
-            delt =  np.sqrt(np.sum(np.power(delta,2)))/2
+            delt = np.sqrt(np.sum(np.power(delta,2)))
+            const = delt*2
             idxs = np.where(cdist(np.array(states),np.array([new[0]]))<delt)[0]
-            # med_arr = np.median(np.array(goals)[idxs])
             idxs2 = [idx for idx in idxs if np.array(actions)[idx] == new[1]]
+            # med_arr = np.median(np.array(goals)[idxs])
             med_arr = np.median(np.array(goals)[idxs2]) #changed!!
-            if new[1] not in np.array(actions)[idxs] and R + const > med_arr: #changed!
-                self.qec_table[new] = R
-                self.counter[new] = 1
-            elif R + const > med_arr:
-                self.qec_table[new] = R
-                self.counter[new] = 1
-            # if new[1] not in np.array(actions)[idxs] or R + const > med_arr:
-            #     # if R + c < goals[idxs].all():
-            #         # self.qec_table[]
-            #     self.qec_table[new] = R
-            #     self.counter[new] = 1
-            for idx in idxs:
+
+            for idx in idxs2:
                 if goals[idx] + const < med_arr:
-                    # import pdb; pdb.set_trace()
                     self.qec_table.pop((states[idx],actions[idx]))
                     self.counter.pop((states[idx],actions[idx]))
+                    # import pdb; pdb.set_trace()
         if len(self.qec_table)>self.buffer_size:
-            # import pdb; pdb.set_trace()
-            # num_big = abs(self.buffer_size-len(self.qec_table))
-            # print(num_big)
+            num_big = abs(self.buffer_size-len(self.qec_table))
+            sorted_x = sorted(self.counter.items(), key=operator.itemgetter(1))
             if len(set(self.counter.values()))==1:
-                id = np.random.randint(len(self.qec_table)-1)
-                # for idd in id:
-                del self.qec_table[(states[id],actions[id])]
-                del self.counter[(states[id],actions[id])]
+                id = np.random.choice(range(len(self.qec_table)),num_big)
+                for idd in id:
+                    del self.qec_table[(states[idd],actions[idd])]
+                    del self.counter[(states[idd],actions[idd])]
             else:
-                # import pdb; pdb.set_trace()
-                min_val = min(self.counter, key=self.counter.get)
-                # sorted_x = sorted(self.counter.items(), key=operator.itemgetter(1))
-                # for keyy in sorted_x[:num_big]:
-                del self.qec_table[self.counter[min_val]]
-                del self.counter[self.counter[min_val]]
+                for keyy in sorted_x[:num_big]:
+                    del self.qec_table[keyy[0]]
+                    del self.counter[keyy[0]]
+
+    # def update_table(self,R,new,const):
+    #
+    #     if new in self.qec_table.keys():
+    #         if R>self.qec_table[new]:
+    #             self.qec_table[new] = R
+    #     # else:
+    #     #     self.qec_table[new] = R
+    #     elif len(self.qec_table)<10 or not self.filter:
+    #         self.qec_table[new] = R
+    #         self.counter[new] = 1
+    #     else:
+    #         sa, goals = zip(*self.qec_table.items())
+    #         states, actions = zip(*sa)
+    #
+    #         delta = np.std(np.array(states),axis = 0)
+    #         delt =  np.sqrt(np.sum(np.power(delta,2)))
+    #         idxs = np.where(cdist(np.array(states),np.array([new[0]]))<delt)[0]
+    #         # med_arr = np.median(np.array(goals)[idxs])
+    #         idxs2 = [idx for idx in idxs if np.array(actions)[idx] == new[1]]
+    #         if len(idxs2)!=0:
+    #             q3_arr = np.percentile(np.array(goals)[idxs2],75)
+    #             med_arr = np.median(np.array(goals)[idxs2]) #changed!!
+    #             if new[1] not in np.array(actions)[idxs] and R + delt > q3_arr: #changed!
+    #                 self.qec_table[new] = R
+    #                 self.counter[new] = 1
+    #             elif R + const > med_arr:
+    #                 self.qec_table[new] = R
+    #                 self.counter[new] = 1
+    #         else:
+    #             self.qec_table[new] = R
+    #         for idx in idxs2:
+    #             if goals[idx] + delt < med_arr:
+    #                 # import pdb; pdb.set_trace()
+    #                 self.qec_table.pop((states[idx],actions[idx]))
+    #                 self.counter.pop((states[idx],actions[idx]))
+    #
+    #     if len(self.qec_table)>self.buffer_size:
+    #         # import pdb; pdb.set_trace()
+    #         # num_big = abs(self.buffer_size-len(self.qec_table))
+    #         # print(num_big)
+    #         if len(set(self.counter.values()))==1:
+    #             id = np.random.randint(len(self.qec_table)-1)
+    #             # for idd in id:
+    #             del self.qec_table[(states[id],actions[id])]
+    #             del self.counter[(states[id],actions[id])]
+    #         else:
+    #             # import pdb; pdb.set_trace()
+    #             min_val = min(self.counter, key=self.counter.get)
+    #             # sorted_x = sorted(self.counter.items(), key=operator.itemgetter(1))
+    #             # for keyy in sorted_x[:num_big]:
+    #             del self.qec_table[self.counter[min_val]]
+    #             del self.counter[self.counter[min_val]]
 
 
     def _initialize_projection_function(self, dimension_observation):
@@ -145,6 +184,7 @@ class Episodic_Control():
             epoch_steps = 0
             episodes_per_epoch = 0
             reward_per_epoch = 0
+            start = time.time()
             while epoch_steps < 10000:
                 state = self.env.reset()
                 # if i < 30:
@@ -200,10 +240,19 @@ class Episodic_Control():
                 episodes_per_epoch += 1
                 # print(ep_reward)
                 q_return = 0.
+                stsss = [keyy[0] for keyy in self.qec_table.keys()]
+                dd = np.std(np.array(stsss),axis = 0)
+                dd2 =  np.sqrt(np.sum(np.power(dd,2)))
+                const = dd2*np.exp(-i)
                 for j in range(len(trace_list)-1, -1, -1):
                     node = trace_list[j]
                     q_return = q_return * self.ec_discount + node[2]
-                    self.update_table(q_return,(node[0],node[1]),.1)
+                    self.update_table(q_return,(node[0],node[1]),const)
+            end = time.time()
+            print(end - start)
+            for all_new,R in self.qec_table.copy().items():
+                if all_new in self.qec_table.keys():
+                    self.update_table(R,all_new,const)
             self.total_reward.append(reward_per_epoch/episodes_per_epoch)
             self.total_sum_reward += reward_per_epoch
             # print('Average Reward: '+ str(sum(ep_avg_reward)/len(ep_avg_reward)))
@@ -222,7 +271,7 @@ class Episodic_Control():
                 # pp.dump()
 
 buffer_size = 10000
-ec_discount = .99
+ec_discount = .9
 min_epsilon = 0.01
 decay_rate = 1
 epochs = 5000

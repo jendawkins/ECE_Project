@@ -72,31 +72,22 @@ class Episodic_Control():
             if R>self.qec_table[new]:
                 self.qec_table[new] = R
                 self.counter[new] += 1
-        elif len(self.qec_table)<10 or not self.filter:
+        else:
             self.qec_table[new] = R
             self.counter[new] = 1
-        else:
+        if self.filter:
             sa, goals = zip(*self.qec_table.items())
             states, actions = zip(*sa)
             # states,actions = zip(*[key for key,item in self.qec_table.items()])
             # goals = [item for key, item in self.qec_table.items()]
             delta = np.std(np.array(states),axis = 0)
             delt = np.sqrt(np.sum(np.power(delta,2)))
+            const = delt*2
             idxs = np.where(cdist(np.array(states),np.array([new[0]]))<delt)[0]
             idxs2 = [idx for idx in idxs if np.array(actions)[idx] == new[1]]
             # med_arr = np.median(np.array(goals)[idxs])
             med_arr = np.median(np.array(goals)[idxs2]) #changed!!
-            if new[1] not in np.array(actions)[idxs] and R + const > med_arr: #changed!
-                self.qec_table[new] = R
-                self.counter[new] = 1
-            elif R + const > med_arr:
-                self.qec_table[new] = R
-                self.counter[new] = 1
-            # if new[1] not in np.array(actions)[idxs] or R + const > med_arr:
-            #     # if R + c < goals[idxs].all():
-            #         # self.qec_table[]
-            #     self.qec_table[new] = R
-            #     self.counter[new] = 1
+
             for idx in idxs2:
                 if goals[idx] + const < med_arr:
                     self.qec_table.pop((states[idx],actions[idx]))
@@ -127,6 +118,7 @@ class Episodic_Control():
             episodes_per_epoch = 0
             reward_per_epoch = 0
             animate_this_episode = VISUALIZE and steps%10000==0
+            start = time.time()
             while epoch_steps < 10000:
                 if animate_this_episode:
                     self.env.render()
@@ -184,12 +176,15 @@ class Episodic_Control():
                 va = torch.Tensor(0,0)
                 self.net.train()
                 # update qec table
-                const = epsilon
+                stsss = [keyy[0] for keyy in self.qec_table.keys()]
+                dd = np.std(np.array(stsss),axis = 0)
+                dd2 =  np.sqrt(np.sum(np.power(dd,2)))
+                const = dd2*np.exp(-i)
                 for j in range(len(trace_list)-1, -1, -1):
                     node = trace_list[j]
                     q_return = q_return * self.ec_discount + node[2]
 
-                    self.update_table(q_return,(node[0],node[1]),.5)
+                    self.update_table(q_return,(node[0],node[1]),const)
 
                 # train network on updated table
                 s_a, va = zip(*[(key,item) for key,item in self.qec_table.items()])
@@ -206,7 +201,8 @@ class Episodic_Control():
                 loss = self.loss(preds,va)
                 loss.backward()
                 self.optimizer.step()
-
+            end = time.time()
+            print(end - start)
             self.total_reward.append(reward_per_epoch/episodes_per_epoch)
             self.total_sum_reward += reward_per_epoch
             print('Average Epoch ' + str(i) + ' Reward: ' + str(self.total_reward[-1]))
@@ -235,7 +231,7 @@ learning_rate = 1e-2
 rng = np.random.RandomState(123456)
 environment = gym.make('LunarLander-v2')
 VISUALIZE = False
-save_name = 'LunarLanderModelFilt'
+save_name = 'LunarLander'
 
 if VISUALIZE:
     if not os.path.exists(logdir):
