@@ -11,6 +11,7 @@ from neural_net import *
 import time
 from scipy.spatial.distance import cdist
 import operator
+import time
 
 class Episodic_Control():
     def __init__(self, environment, epochs, rng, continuous, buffer_size, ec_discount, min_epsilon, decay_rate,knn,lrr,filter,save_name):
@@ -124,6 +125,7 @@ class Episodic_Control():
             epoch_steps = 0
             episodes_per_epoch = 0
             reward_per_epoch = 0
+            start = time.time()
             animate_this_episode = VISUALIZE and steps%10000==0
             while epoch_steps < 10000:
                 if animate_this_episode:
@@ -205,7 +207,8 @@ class Episodic_Control():
                 loss = self.loss(preds,va)
                 loss.backward()
                 self.optimizer.step()
-
+            end = time.time()
+            print(end - start)
             self.total_reward.append(reward_per_epoch/episodes_per_epoch)
             self.total_sum_reward += reward_per_epoch
             print('Average Epoch ' + str(i) + ' Reward: ' + str(self.total_reward[-1]))
