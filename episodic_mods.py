@@ -119,7 +119,7 @@ class Episodic_Control():
         self.total_reward = []
         self.total_sum_reward = 0
         self.reward_per_ep = []
-        MAXI = False
+        #MAXI = False
         FILTER = False
         for i in range(self.epochs):
             if i > 5:
@@ -194,10 +194,11 @@ class Episodic_Control():
                     node = trace_list[j]
                     q_return = q_return * self.ec_discount + node[2]
 
+                    if FILTER == True:
                     #self.update_table(q_return,(node[0],node[1]),FILTER)
-                    if len(self.qec_table) > 5000:
-                        MAXI = True
-                    if MAXI == True:
+                    #if len(self.qec_table) > 5000:
+                        #MAXI = True
+                    #if MAXI == True:
                         self.update_table(q_return,(node[0],node[1]), FILTER)
 
                 # train network on updated table
