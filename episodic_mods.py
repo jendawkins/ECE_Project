@@ -67,7 +67,7 @@ class Episodic_Control():
 
         return value / knn
 
-    def update_table(self,R,new,const):
+    def update_table(self,R,new):
         if new in self.qec_table.keys():
             if R>self.qec_table[new]:
                 self.qec_table[new] = R
@@ -80,11 +80,17 @@ class Episodic_Control():
             states, actions = zip(*sa)
             # states,actions = zip(*[key for key,item in self.qec_table.items()])
             # goals = [item for key, item in self.qec_table.items()]
-            delta = np.std(np.array(states),axis = 0)
-            delt = np.sqrt(np.sum(np.power(delta,2)))
-            const = delt*2
-            idxs = np.where(cdist(np.array(states),np.array([new[0]]))<delt)[0]
+
+            state_std = np.std(np.array(states), axis = 0)
+            state_rms = np.sqrt(np.sum(np.power(state_std,2)))
+
+            idxs = np.where(cdist(np.array(states),np.array([new[0]]))<state_rms)[0]
             idxs2 = [idx for idx in idxs if np.array(actions)[idx] == new[1]]
+
+            delta = np.std(np.array(goals)[idxs2])
+            delt = np.sqrt(np.sum(np.power(delta,2)))
+            const = delt
+
             # med_arr = np.median(np.array(goals)[idxs])
             med_arr = np.median(np.array(goals)[idxs2]) #changed!!
 
@@ -184,7 +190,7 @@ class Episodic_Control():
                     node = trace_list[j]
                     q_return = q_return * self.ec_discount + node[2]
 
-                    self.update_table(q_return,(node[0],node[1]),const)
+                    self.update_table(q_return,(node[0],node[1]))
 
                 # train network on updated table
                 s_a, va = zip(*[(key,item) for key,item in self.qec_table.items()])
