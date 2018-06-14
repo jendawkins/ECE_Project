@@ -65,7 +65,7 @@ class Episodic_Control():
 
         return value / knn
 
-    def update_table(self,R,new, filter):
+    def update_table(self,R,new, filters):
         if new in self.qec_table.keys():
             if R>self.qec_table[new]:
                 self.qec_table[new] = R
@@ -73,7 +73,7 @@ class Episodic_Control():
         else:
             self.qec_table[new] = R
             self.counter[new] = 1
-        if filter:
+        if filters:
             sa, goals = zip(*self.qec_table.items())
             states, actions = zip(*sa)
             # states,actions = zip(*[key for key,item in self.qec_table.items()])
@@ -194,12 +194,11 @@ class Episodic_Control():
                     node = trace_list[j]
                     q_return = q_return * self.ec_discount + node[2]
 
-                    if FILTER == True:
                     #self.update_table(q_return,(node[0],node[1]),FILTER)
                     #if len(self.qec_table) > 5000:
                         #MAXI = True
                     #if MAXI == True:
-                        self.update_table(q_return,(node[0],node[1]), FILTER)
+                    self.update_table(q_return,(node[0],node[1]), FILTER)
 
                 # train network on updated table
                 s_a, va = zip(*[(key,item) for key,item in self.qec_table.items()])
