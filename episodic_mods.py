@@ -237,8 +237,10 @@ epochs = 60
 knn = 11
 filter = True
 learning_rate = 1e-2
-#1e-2 works for lunar landing, maybe try 1e-6
-#try huber_loss instead of MSE
+#lr = 1e-2 works for lunar landing, maybe try 1e-6
+#lr = 0.1 works for cartpole, with 300 and 600 hidden,
+#try huber_loss instead of MSE lunar landing
+#have only NN turn on filter after a while
 rng = np.random.RandomState(123456)
 environment = gym.make('LunarLander-v2')
 VISUALIZE = False
