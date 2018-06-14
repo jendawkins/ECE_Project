@@ -13,7 +13,7 @@ from scipy.spatial.distance import cdist
 import operator
 
 class Episodic_Control():
-    def __init__(self, environment, epochs, rng, continuous, buffer_size, ec_discount, min_epsilon, decay_rate,knn,lrr,filter,save_name):
+    def __init__(self, environment, epochs, rng, continuous, buffer_size, ec_discount, min_epsilon, decay_rate,knn,lrr,save_name):
         self.save_name = save_name
         self.lr = lrr
         self.env = environment
@@ -27,7 +27,6 @@ class Episodic_Control():
         self.filt_qec_table = {}
         self.action_size = self.env.action_space.n
         self.epochs = epochs
-        self.filter = filter
         # state_size = env.observation_space.shape[0]
         if continuous:
             self.state_dimension = self.env.observation_space.shape[0]
@@ -65,7 +64,7 @@ class Episodic_Control():
 
         return value / knn
 
-    def update_table(self,R,new,const):
+    def update_table(self,R,new, filter):
         if new in self.qec_table.keys():
             if R>self.qec_table[new]:
                 self.qec_table[new] = R
@@ -73,16 +72,22 @@ class Episodic_Control():
         else:
             self.qec_table[new] = R
             self.counter[new] = 1
-        if self.filter:
+        if filter:
             sa, goals = zip(*self.qec_table.items())
             states, actions = zip(*sa)
             # states,actions = zip(*[key for key,item in self.qec_table.items()])
             # goals = [item for key, item in self.qec_table.items()]
-            delta = np.std(np.array(states),axis = 0)
-            delt = np.sqrt(np.sum(np.power(delta,2)))
-            const = delt*2
-            idxs = np.where(cdist(np.array(states),np.array([new[0]]))<delt)[0]
+
+            state_std = np.std(np.array(states), axis = 0)
+            state_rms = np.sqrt(np.sum(np.power(state_std,2)))
+
+            idxs = np.where(cdist(np.array(states),np.array([new[0]]))<state_rms)[0]
             idxs2 = [idx for idx in idxs if np.array(actions)[idx] == new[1]]
+
+            delta = np.std(np.array(goals)[idxs2])
+            delt = np.sqrt(np.sum(np.power(delta,2)))
+            const = delt
+
             # med_arr = np.median(np.array(goals)[idxs])
             med_arr = np.median(np.array(goals)[idxs2]) #changed!!
 
@@ -92,6 +97,8 @@ class Episodic_Control():
                     self.counter.pop((states[idx],actions[idx]))
                     # import pdb; pdb.set_trace()
         if len(self.qec_table)>self.buffer_size:
+            sa, goals = zip(*self.qec_table.items())
+            states, actions = zip(*sa)
             num_big = abs(self.buffer_size-len(self.qec_table))
             sorted_x = sorted(self.counter.items(), key=operator.itemgetter(1))
             if len(set(self.counter.values()))==1:
@@ -111,7 +118,11 @@ class Episodic_Control():
         self.total_reward = []
         self.total_sum_reward = 0
         self.reward_per_ep = []
+        MAXI = False
+        FILTER = False
         for i in range(self.epochs):
+            if i > 5:
+                FILTER = True
             epoch_steps = 0
             episodes_per_epoch = 0
             reward_per_epoch = 0
@@ -182,7 +193,11 @@ class Episodic_Control():
                     node = trace_list[j]
                     q_return = q_return * self.ec_discount + node[2]
 
-                    self.update_table(q_return,(node[0],node[1]),const)
+                    self.update_table(q_return,(node[0],node[1]),FILTER)
+                    if len(self.qec_table) > 5000:
+                        MAXI = True
+                    if MAXI == True:
+                        self.update_table(q_return,(node[0],node[1]))
 
                 # train network on updated table
                 s_a, va = zip(*[(key,item) for key,item in self.qec_table.items()])
@@ -225,10 +240,9 @@ min_epsilon = 0.01
 decay_rate = 1
 epochs = 60
 knn = 11
-filter = True
 learning_rate = .1
 rng = np.random.RandomState(123456)
-environment = gym.make('LunarLander-v2')
+environment = gym.make('CartPole-v0')
 VISUALIZE = False
 save_name = 'LunarLander'
 
@@ -242,7 +256,7 @@ continuous = isinstance(environment.observation_space, gym.spaces.Discrete)==Fal
 # net = neural_net()
 #(self, net, environment, rng, continuous, buffer_size, ec_discount, min_epsilon, decay_rate,knn)
 EC = Episodic_Control(environment, epochs, rng, continuous, buffer_size, ec_discount, min_epsilon,
-                decay_rate,knn,learning_rate, filter,save_name)
+                decay_rate,knn,learning_rate,save_name)
 EC.train_net(VISUALIZE)
 
 # plot EC.total_reward for average reward over episodes
