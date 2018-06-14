@@ -16,9 +16,9 @@ class neural_net(nn.Module):
         self.l1 = nn.Linear(self.state_size, 300)
         self.bn1 = nn.BatchNorm1d(300)
         self.rel1 = nn.ReLU()
-        self.l2 = nn.Linear(300+1, 300)
+        self.l2 = nn.Linear(300+1, 600)
         self.rel2 = nn.ReLU()
-        self.l3 = nn.Linear(300, self.output_size)
+        self.l3 = nn.Linear(600, self.output_size)
         self.layers = nn.Sequential(
             self.l1,
             self.bn1,
