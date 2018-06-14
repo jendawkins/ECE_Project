@@ -16,6 +16,7 @@ class Episodic_Control():
     def __init__(self, environment, epochs, rng, continuous, buffer_size, ec_discount, min_epsilon, decay_rate,knn,lrr,save_name):
         self.save_name = save_name
         self.lr = lrr
+        #self.lr = lrr * (0.1 ** (self.epochs // 30))
         self.env = environment
         self.rng = rng
         self.buffer_size = buffer_size
