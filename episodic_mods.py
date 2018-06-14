@@ -27,8 +27,8 @@ class Episodic_Control():
         self.filt_qec_table = {}
         self.action_size = self.env.action_space.n
         self.epochs = epochs
-        #self.lr = lrr
-        self.lr = lrr * (0.1 ** (self.epochs // 30))
+        self.lr = lrr
+        #self.lr = lrr * (0.1 ** (self.epochs // 30))
         self.filter = filter
         # state_size = env.observation_space.shape[0]
         if continuous:
@@ -97,8 +97,7 @@ class Episodic_Control():
             for idx in idxs2:
                 if goals[idx] + const < med_arr:
                     self.qec_table.pop((states[idx],actions[idx]))
-                    self.counter.pop((states[idx],actions[idx]))
-                    # import pdb; pdb.set_trace()
+                    #self.counter.pop((states[idx],actions[idx]))
         if len(self.qec_table)>self.buffer_size:
             num_big = abs(self.buffer_size-len(self.qec_table))
             sorted_x = sorted(self.counter.items(), key=operator.itemgetter(1))
@@ -119,6 +118,7 @@ class Episodic_Control():
         self.total_reward = []
         self.total_sum_reward = 0
         self.reward_per_ep = []
+        MAXI = False
         for i in range(self.epochs):
             epoch_steps = 0
             episodes_per_epoch = 0
@@ -189,8 +189,11 @@ class Episodic_Control():
                 for j in range(len(trace_list)-1, -1, -1):
                     node = trace_list[j]
                     q_return = q_return * self.ec_discount + node[2]
-
-                    self.update_table(q_return,(node[0],node[1]))
+                    self.qec_table[(node[0],node[1])] = q_return
+                    if len(self.qec_table) > 5000:
+                        MAXI = True
+                    if MAXI == True:
+                        self.update_table(q_return,(node[0],node[1]))
 
                 # train network on updated table
                 s_a, va = zip(*[(key,item) for key,item in self.qec_table.items()])
