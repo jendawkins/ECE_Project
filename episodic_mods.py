@@ -37,7 +37,7 @@ class Episodic_Control():
         else:
             self.state_dimension = 1
             self.state_size = self.env.observation_space.n
-        self.net = neural_net(self.state_dimension,self.action_size,1)
+        self.net = neural_net(self.state_dimension,self.action_size,1).cuda()
         self.loss = nn.MSELoss()
         self.optimizer = torch.optim.Adam(self.net.parameters(),lr = self.lr)
         self.counter = {}
@@ -97,8 +97,11 @@ class Episodic_Control():
             for idx in idxs2:
                 if goals[idx] + const < med_arr:
                     self.qec_table.pop((states[idx],actions[idx]))
-                    #self.counter.pop((states[idx],actions[idx]))
+                    self.counter.pop((states[idx],actions[idx]))
+                    # import pdb; pdb.set_trace()
         if len(self.qec_table)>self.buffer_size:
+            sa, goals = zip(*self.qec_table.items())
+            states, actions = zip(*sa)
             num_big = abs(self.buffer_size-len(self.qec_table))
             sorted_x = sorted(self.counter.items(), key=operator.itemgetter(1))
             if len(set(self.counter.values()))==1:
@@ -118,7 +121,6 @@ class Episodic_Control():
         self.total_reward = []
         self.total_sum_reward = 0
         self.reward_per_ep = []
-        MAXI = False
         for i in range(self.epochs):
             epoch_steps = 0
             episodes_per_epoch = 0
@@ -154,12 +156,12 @@ class Episodic_Control():
                         for action in range(self.action_size):
                             if np.isscalar(state):
                                 state = [state]
-                            s_in = Variable(torch.Tensor([state]))
-                            a_in = Variable(torch.Tensor([[action]]))
+                            s_in = Variable(Tensor([state]))
+                            a_in = Variable(Tensor([[action]]))
                             self.net.eval()
                             pred = self.net(s_in, a_in)
 
-                            value_t.append(pred.data.numpy()[0][0])
+                            value_t.append(pred.cpu().data.numpy()[0][0])
                         if len(set(value_t))==1:
                             maximum_action = self.rng.randint(0, self.action_size)
                         else:
@@ -179,7 +181,7 @@ class Episodic_Control():
                 q_return = 0.
                 state_tensor = []
                 action_tensor = []
-                va = torch.Tensor(0,0)
+                va = Tensor(0,0)
                 self.net.train()
                 # update qec table
                 stsss = [keyy[0] for keyy in self.qec_table.keys()]
@@ -189,22 +191,19 @@ class Episodic_Control():
                 for j in range(len(trace_list)-1, -1, -1):
                     node = trace_list[j]
                     q_return = q_return * self.ec_discount + node[2]
-                    self.qec_table[(node[0],node[1])] = q_return
-                    if len(self.qec_table) > 5000:
-                        MAXI = True
-                    if MAXI == True:
-                        self.update_table(q_return,(node[0],node[1]))
+
+                    self.update_table(q_return,(node[0],node[1]))
 
                 # train network on updated table
                 s_a, va = zip(*[(key,item) for key,item in self.qec_table.items()])
-                va = Variable(torch.Tensor(np.array(va)).unsqueeze(1))
+                va = Variable(Tensor(np.array(va)).unsqueeze(1))
                 state_tensor, action_tensor = zip(*s_a)
-                state_tensor = Variable(torch.Tensor(np.array(state_tensor)))
+                state_tensor = Variable(Tensor(np.array(state_tensor)))
                 if len(state_tensor.size())==1:
                     state_tensor = state_tensor.unsqueeze(1)
                 if len(self.qec_table)==1:
                     self.net.eval()
-                action_tensor = Variable(torch.Tensor(np.array(action_tensor)).unsqueeze(1))
+                action_tensor = Variable(Tensor(np.array(action_tensor)).unsqueeze(1))
                 preds = self.net(state_tensor, action_tensor)
                 self.optimizer.zero_grad()
                 loss = self.loss(preds,va)
@@ -217,17 +216,23 @@ class Episodic_Control():
             print('Average Epoch ' + str(i) + ' Reward: ' + str(self.total_reward[-1]))
             print('Total Reward: ' + str(self.total_sum_reward))
             print(len(self.qec_table))
-            #with open(self.save_name + '.csv','a') as f:
-                #f.write(str(self.total_reward[-1]) + ', ')
+            with open(self.save_name + '.csv','a') as f:
+                f.write(str(self.total_reward[-1]) + ', ')
 
-            #with open(self.save_name + '2.csv','a') as f:
-                #f.write(str(self.reward_per_ep[-episodes_per_epoch:]) + ', ')
-            #pickl_file = open(self.save_name + '.pkl','wb')
-            #pickle.dump(self.qec_table,pickl_file)
-            #pickl_file.close()
-            #torch.save(self.net, self.save_name + '.pt')
+            with open(self.save_name + '2.csv','a') as f:
+                f.write(str(self.reward_per_ep[-episodes_per_epoch:]) + ', ')
+            pickl_file = open(self.save_name + '.pkl','wb')
+            pickle.dump(self.qec_table,pickl_file)
+            pickl_file.close()
+            torch.save(self.net, self.save_name + '.pt')
             # print(len(self.qec_table))
             # print(self.qec_table)
+
+use_cuda = torch.cuda.is_available()
+FloatTensor = torch.cuda.FloatTensor if use_cuda else torch.FloatTensor
+LongTensor = torch.cuda.LongTensor if use_cuda else torch.LongTensor
+ByteTensor = torch.cuda.ByteTensor if use_cuda else torch.ByteTensor
+Tensor = FloatTensor
 
 buffer_size = 10000
 ec_discount = .9
@@ -235,16 +240,14 @@ min_epsilon = 0.01
 decay_rate = 1
 epochs = 60
 knn = 11
-filter = True
-learning_rate = 1e-2
-#lr = 1e-2 works for lunar landing, maybe try 1e-6
-#lr = 0.1 works for cartpole, with 300 and 600 hidden,
-#try huber_loss instead of MSE lunar landing
-#have only NN turn on filter after a while
+filter = False
+#learning_rate = 1e-2
+learning_rate = 0.1
 rng = np.random.RandomState(123456)
-environment = gym.make('LunarLander-v2')
+#environment = gym.make('LunarLander-v2')
+environment = gym.make('CartPole-v0')
 VISUALIZE = False
-save_name = 'LunarLander'
+save_name = 'CartPolev1'
 
 if VISUALIZE:
     if not os.path.exists(logdir):
