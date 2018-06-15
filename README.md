@@ -15,10 +15,18 @@ from scipy.spatial.distance import cdist
 ```
 
 ### Files
-* episodic_mods = all modifications added (Filter and NN)
-* episodic_ctrl_clean.py = our code for original MFEC paper (KNN)
+* episodic_mods.py = all modifications added (Filter and NN)
+* episodic_ctrl_clean.py = our code for original MFEC paper (K-NN)
 * neural_net.py = the neural network
 * test_heuristic.py = code for analyzing the efficacy of filter.
+
+### Run file
+
+'''
+python episodic_mods.py
+python episodic_ctrl_clean.py
+python test_heuristic.py
+'''
 
 ## MFEC Paper
  Blundell, C., Uria, B., Pritzel, A., Li, Y., Ruderman, A., Leibo, J. Z., Rae, J., Wierstra, D., Hassabis, D. (2016) Model-free episodic control. arXiv preprint 1606.04460. Available at: https://arxiv.org/abs/1606.04460.
