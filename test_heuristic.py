@@ -7,6 +7,8 @@ import heapq
 from PIL import Image
 import random
 from scipy.spatial.distance import cdist
+from scipy.integrate import trapz
+from scipy.interpolate import griddata
 
 
 def removekey(d, key):
@@ -29,6 +31,7 @@ def get_qstar(episodes,images,gamma,env):
         steps = 0.
         ep_reward = 0.
         trace_list = []
+
         while not done:
             value_t = []
             if images:
@@ -69,12 +72,15 @@ def get_filtered(delta_factor, const, table):
     for i, new in enumerate(sa):
         if new in table.keys():
             # sample_dict = removekey(table, new)
-            idxs = np.where(cdist(np.array(states).reshape(len(states),-1),np.array([[new[0]]]))<delta)[0]
+            # import pdb; pdb.set_trace()
+            XA = np.array(states).reshape(len(states),-1)
+            XB = np.array([new[0]])
+            idxs = np.where(cdist(XA,XB)<delta)[0]
             med_arr = np.median(np.array(goals)[idxs])
             for idx in idxs:
-                if (states[idx],actions[idx]) in table.keys():
+                if (states[idx],new[1]) in table.keys():
                     if goals[idx] + const < med_arr:
-                        table.pop((states[idx],actions[idx]))
+                        table.pop((states[idx],new[1]))
     return table
 
 env = gym.make('MountainCar-v0')
@@ -87,21 +93,37 @@ env = gym.make('MountainCar-v0')
 #     reward_threshold=0.78, # optimum = .8196
 # )
 # env = gym.make('FrozenLakeNotSlippery-v0')
+env = gym.make('MountainCar-v0')
 const = 0
 file_table = open('mt_car_wModel_noFilt.pkl','rb')
-qec_table = pickle.load(file_table)
+qhat = pickle.load(file_table,encoding='latin1')
 file_table.close()
+
+file_table = open('MtCar_Net_Filter.pkl','rb')
+qhat_prime = pickle.load(file_table,encoding='latin1')
+file_table.close()
+
 images = False
 gamma = .1
-qstar = get_qstar(1000,images,gamma,env)
 
-qhat = qec_table
-delta_factor = 1
-qhat_prime = get_filtered(delta_factor, const, qec_table)
-import pdb; pdb.set_trace()
 tot = 0
-for key in qstar.keys():
-    if key in qhat.keys() and key in qhat_prime.keys():
-        diff1 = abs(qstar[key] - qhat_prime[key])
-        diff2 = abs(qstar[key] - qhat[key])
-        tot += diff1 - diff2
+int = []
+
+grid_x, grid_y, grid_z  = np.mgrid[env.observation_space.low[0]:.005:env.observation_space.high[0],
+env.observation_space.low[1]:.005:env.observation_space.high[1], 0:1]
+# grid_z2 = griddata(points, values, (grid_x, grid_y), method='cubic')
+grid = {}
+for i,q_table in enumerate([qhat, qhat_prime]):
+    sa_star, g_star = zip(*q_table.items())
+    s_star,a_star = zip(*sa_star)
+    s_ar = np.array(s_star)
+    a_ar = np.array(a_star).reshape(-1,1)
+    x_star = np.hstack((s_ar, a_ar))
+    grid_z2 = griddata(x_star, np.array(g_star), (grid_x, grid_y, grid_z),'linear')
+
+    grid[i] = grid_z2
+    # import pdb; pdb.set_trace()
+
+diff = grid[1]-grid[0]
+interp = 2.4*diff[0][1][0] + 1.2*diff[1][1][0] + 1*diff[2][1][0]
+print(interp)

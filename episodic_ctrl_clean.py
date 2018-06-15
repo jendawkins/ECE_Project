@@ -83,10 +83,9 @@ class Episodic_Control():
         else:
             self.qec_table[new] = R
             self.counter[new] = 1
+        sa, goals = zip(*self.qec_table.items())
+        states, actions = zip(*sa)
         if self.filter:
-            sa, goals = zip(*self.qec_table.items())
-            states, actions = zip(*sa)
-
             delta = np.std(np.array(states),axis = 0)
             delt = np.sqrt(np.sum(np.power(delta,2)))
             const = delt*2
@@ -113,58 +112,6 @@ class Episodic_Control():
                     del self.qec_table[keyy[0]]
                     del self.counter[keyy[0]]
 
-    # def update_table(self,R,new,const):
-    #
-    #     if new in self.qec_table.keys():
-    #         if R>self.qec_table[new]:
-    #             self.qec_table[new] = R
-    #     # else:
-    #     #     self.qec_table[new] = R
-    #     elif len(self.qec_table)<10 or not self.filter:
-    #         self.qec_table[new] = R
-    #         self.counter[new] = 1
-    #     else:
-    #         sa, goals = zip(*self.qec_table.items())
-    #         states, actions = zip(*sa)
-    #
-    #         delta = np.std(np.array(states),axis = 0)
-    #         delt =  np.sqrt(np.sum(np.power(delta,2)))
-    #         idxs = np.where(cdist(np.array(states),np.array([new[0]]))<delt)[0]
-    #         # med_arr = np.median(np.array(goals)[idxs])
-    #         idxs2 = [idx for idx in idxs if np.array(actions)[idx] == new[1]]
-    #         if len(idxs2)!=0:
-    #             q3_arr = np.percentile(np.array(goals)[idxs2],75)
-    #             med_arr = np.median(np.array(goals)[idxs2]) #changed!!
-    #             if new[1] not in np.array(actions)[idxs] and R + delt > q3_arr: #changed!
-    #                 self.qec_table[new] = R
-    #                 self.counter[new] = 1
-    #             elif R + const > med_arr:
-    #                 self.qec_table[new] = R
-    #                 self.counter[new] = 1
-    #         else:
-    #             self.qec_table[new] = R
-    #         for idx in idxs2:
-    #             if goals[idx] + delt < med_arr:
-    #                 # import pdb; pdb.set_trace()
-    #                 self.qec_table.pop((states[idx],actions[idx]))
-    #                 self.counter.pop((states[idx],actions[idx]))
-    #
-    #     if len(self.qec_table)>self.buffer_size:
-    #         # import pdb; pdb.set_trace()
-    #         # num_big = abs(self.buffer_size-len(self.qec_table))
-    #         # print(num_big)
-    #         if len(set(self.counter.values()))==1:
-    #             id = np.random.randint(len(self.qec_table)-1)
-    #             # for idd in id:
-    #             del self.qec_table[(states[id],actions[id])]
-    #             del self.counter[(states[id],actions[id])]
-    #         else:
-    #             # import pdb; pdb.set_trace()
-    #             min_val = min(self.counter, key=self.counter.get)
-    #             # sorted_x = sorted(self.counter.items(), key=operator.itemgetter(1))
-    #             # for keyy in sorted_x[:num_big]:
-    #             del self.qec_table[self.counter[min_val]]
-    #             del self.counter[self.counter[min_val]]
 
 
     def _initialize_projection_function(self, dimension_observation):
@@ -287,21 +234,21 @@ knn = 11
 #     reward_threshold=0.78, # optimum = .8196
 # )
 # environment = gym.make('FrozenLakeNotSlippery-v0')
-# environment = gym.make('CartPole-v0')
-environment = gym.make('LunarLander-v2')
+environment = gym.make('CartPole-v0')
+# environment = gym.make('LunarLander-v2')
 continuous = isinstance(environment.observation_space, gym.spaces.Discrete)==False
 rng = np.random.RandomState(123456)
 
 VISUALIZE = False
 # save_name = 'FLake'
-save_name = 'LunarLanderFilterC'
+save_name = 'VanillaCartpole'
 if VISUALIZE:
     if not os.path.exists(logdir):
         os.mkdir(logdir)
     environment = gym.wrappers.Monitor(environment, logdir, force=True, video_callable=lambda episode_id: episode_id%logging_interval==0)
 
 images = False
-filter_buffer = True
+filter_buffer = False
 load_data = False
 EC = Episodic_Control(environment, epochs, rng, continuous, buffer_size,
                 ec_discount, min_epsilon, decay_rate,knn,images,filter_buffer,load_data,save_name)
